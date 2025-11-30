@@ -150,7 +150,7 @@ def is_basmala_text(text: str) -> bool:
 QURAN_EMBEDDINGS: Optional[np.ndarray] = None
 QURAN_IDS: Optional[np.ndarray] = None
 FAISS_INDEX: Optional[faiss.Index] = None
-#EMBEDDING_MODEL: Optional[SentenceTransformer] = None
+EMBEDDING_MODEL: Optional[SentenceTransformer] = None
 
 # ============================================
 # 🏆 متغيرات جديدة لوضع الخبير
