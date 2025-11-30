@@ -1,0 +1,85 @@
+# ============================================
+# Render.com Configuration
+# ============================================
+# إعدادات النشر على Render.com Free Tier
+
+services:
+  - type: web
+    name: mushaf-ai-backend
+    env: python
+    region: frankfurt  # أو singapore حسب موقعك
+    plan: free  # Free Tier: 512 MB RAM
+    
+    # ========== Build Settings ==========
+    buildCommand: |
+      cd backend
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    
+    # ========== Start Command ==========
+    startCommand: |
+      cd backend
+      python main.py
+    
+    # ========== Environment Variables ==========
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.7
+      
+      - key: PORT
+        value: 10000  # Render يوفر هذا تلقائياً
+      
+      - key: DATABASE_URL
+        value: sqlite:///./quran.db
+      
+      - key: PRODUCTION
+        value: true
+      
+      # ========== تعطيل Model Loading ==========
+      - key: DISABLE_MODEL_LOADING
+        value: true
+      
+      # ========== Performance ==========
+      - key: WORKERS
+        value: 1  # Free tier: worker واحد فقط
+    
+    # ========== Health Check ==========
+    healthCheckPath: /stats
+    
+    # ========== Auto Deploy ==========
+    autoDeploy: true
+    
+    # ========== Disk ==========
+    # Free tier: 512 MB RAM + temporary disk
+    # الملفات الثابتة يجب أن تكون في Git
+    
+    # ========== Domains ==========
+    # Render سيوفر subdomain مجاني:
+    # mushaf-ai-backend.onrender.com
+
+# ============================================
+# ملاحظات مهمة:
+# ============================================
+# 1. Free Tier Limitations:
+#    - 512 MB RAM (كافية بعد تعطيل Model)
+#    - Sleep after 15 min inactivity
+#    - Cold start: ~30 seconds
+#
+# 2. الملفات المطلوبة في Git:
+#    ✅ quran.db (2.36 MB)
+#    ✅ quran_embeddings.npy (24 MB)
+#    ✅ quran_faiss_index.bin (24 MB)
+#    ✅ quran_ids.npy (صغير)
+#    ✅ word_stats_cache.json (35 MB)
+#    ✅ similarity_cache.npy (حسب الحجم)
+#    ✅ mutashabihat_kalima.json
+#    ✅ quran_data_arabic_juz.csv
+#
+# 3. Build Time:
+#    - بدون Model: ~2-3 دقائق
+#    - مع Model: ~10-15 دقيقة (ممنوع)
+#
+# 4. Startup Time:
+#    - بدون Model: ~2-5 ثواني ✅
+#    - مع Model: ~30-45 ثانية ❌
+# ============================================

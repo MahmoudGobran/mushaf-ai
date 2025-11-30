@@ -1,0 +1,314 @@
+/* ملف: mushaf-ai/frontend/src/index.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Amiri+Quran&display=swap');
+
+/* ========================================
+   المتغيرات
+   ======================================== */
+:root {
+  --color-primary: #0d9488;
+  --color-primary-dark: #0f766e;
+  --color-primary-light: #5eead4;
+  --color-secondary: #10b981;
+  --color-accent: #7c3aed;
+  --color-bg-light: #f0fdfa;
+  --color-text-dark: #1f2937;
+  --color-text-light: #6b7280;
+}
+
+/* ========================================
+   الأنماط العامة
+   ======================================== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Amiri', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  direction: rtl;
+  text-align: center;
+  background-color: #f9fafb;
+  color: var(--color-text-dark);
+  line-height: 1.6;
+}
+
+/* ========================================
+   النصوص العربية
+   ======================================== */
+.arabic-text {
+  font-family: 'Amiri', serif;
+  line-height: 2;
+  font-size: 1.25rem;
+}
+
+.quran-text {
+  font-family: 'Amiri Quran', 'Amiri', serif;
+  line-height: 2.5;
+  font-size: 1.5rem;
+  color: var(--color-primary-dark);
+}
+
+/* ========================================
+   ⭕ تحسينات العناوين والأزرار - مباشرة!
+   ======================================== */
+
+/* العنوان الرئيسي - أكبر */
+header h1 {
+  font-size: 3.5rem !important; /* 56px */
+  line-height: 1.2 !important;
+}
+
+@media (min-width: 768px) {
+  header h1 {
+    font-size: 4.5rem !important; /* 72px */
+  }
+}
+
+@media (min-width: 1024px) {
+  header h1 {
+    font-size: 5.5rem !important; /* 88px */
+  }
+}
+
+/* القمر - أكبر */
+header h1 span {
+  font-size: 4rem !important; /* 64px */
+}
+
+@media (min-width: 768px) {
+  header h1 span {
+    font-size: 5rem !important; /* 80px */
+  }
+}
+
+/* نص "البحث والتعلم..." - أكبر */
+header p {
+  font-size: 1.5rem !important; /* 24px */
+  margin-bottom: 2rem !important;
+}
+
+@media (min-width: 768px) {
+  header p {
+    font-size: 1.75rem !important; /* 28px */
+  }
+}
+
+/* زر الاختبار - أكبر */
+header button {
+  padding: 1.5rem 3rem !important;
+  font-size: 1.5rem !important;
+  border-radius: 1rem !important;
+}
+
+header button span:first-child {
+  font-size: 2.5rem !important;
+}
+
+/* أزرار البحث النصي والموقع - أكبر */
+main > div > div > button {
+  padding: 2rem !important;
+  border-radius: 1.5rem !important;
+}
+
+main > div > div > button > span:first-child {
+  font-size: 3.5rem !important;
+  display: block !important;
+  margin-bottom: 0.75rem !important;
+}
+
+main > div > div > button > div:first-of-type {
+  font-size: 2rem !important;
+  font-weight: 900 !important;
+}
+
+@media (min-width: 768px) {
+  main > div > div > button > div:first-of-type {
+    font-size: 2.25rem !important;
+  }
+}
+
+/* عنوان النتائج - أكبر وملون */
+main > div:last-of-type > div:first-child > div {
+  background: linear-gradient(to right, #14b8a6, #10b981) !important;
+  padding: 1.5rem 2.5rem !important;
+  border-radius: 1.5rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 1.5rem !important;
+  color: white !important;
+}
+
+main > div:last-of-type > div:first-child span {
+  font-size: 4rem !important;
+}
+
+main > div:last-of-type > div:first-child h2 {
+  font-size: 2.5rem !important;
+  font-weight: 900 !important;
+}
+
+@media (min-width: 768px) {
+  main > div:last-of-type > div:first-child h2 {
+    font-size: 3rem !important;
+  }
+}
+
+main > div:last-of-type > div:first-child p {
+  font-size: 1.5rem !important;
+}
+
+@media (min-width: 768px) {
+  main > div:last-of-type > div:first-child p {
+    font-size: 1.75rem !important;
+  }
+}
+
+/* ========================================
+   الرسوم المتحركة
+   ======================================== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+.animate-slideInRight { animation: slideInRight 0.5s ease-out; }
+.animate-slideInLeft { animation: slideInLeft 0.5s ease-out; }
+.animate-scaleIn { animation: scaleIn 0.3s ease-out; }
+.animate-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-bounce { animation: bounce 1s infinite; }
+.animate-spin { animation: spin 1s linear infinite; }
+
+.animation-delay-100 { animation-delay: 100ms; }
+.animation-delay-200 { animation-delay: 200ms; }
+.animation-delay-300 { animation-delay: 300ms; }
+
+/* ========================================
+   أنماط المكونات
+   ======================================== */
+.btn-primary {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 1rem;
+  background-image: linear-gradient(to right, #0d9488, #059669);
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
+  background-image: linear-gradient(to right, #0f766e, #047857);
+}
+
+.card {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  background-color: #ffffff;
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+.card:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+  transform: scale(1.02);
+}
+
+.card-gradient {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 1px solid #d1fae5;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  background-image: linear-gradient(to bottom right, #ffffff, #f0fdfa);
+}
+
+.input-field {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #d1d5db;
+  border-radius: 1rem;
+  font-size: 1.125rem;
+  transition: all 0.3s ease;
+}
+
+.input-field:focus {
+  border-color: #0d9488;
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
+}
+
+.badge { 
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+}
+.badge-primary { background-color: #ccfbf1; color: #115e59; }
+
+.gradient-primary { background-image: linear-gradient(to right, #0d9488, #059669); }
+
+.hover-lift { transition: all 0.3s ease; }
+.hover-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+.gpu-accelerated { transform: translateZ(0); will-change: transform; }
+
+/* ========================================
+   Scrollbar
+   ======================================== */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 10px; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #0d9488, #10b981);
+  border-radius: 10px;
+}
+
+/* ========================================
+   تصميم متجاوب
+   ======================================== */
+@media (max-width: 768px) {
+  .quran-text { font-size: 1.25rem; line-height: 2.2; }
+  .card { padding: 1rem; }
+}
+
+@media (max-width: 640px) {
+  body { font-size: 14px; }
+  .quran-text { font-size: 1.1rem; line-height: 2; }
+}

@@ -1,0 +1,101 @@
+# ============================================
+# .gitignore للمصحف الذكي V6.0
+# ============================================
+# تجاهل الملفات غير الضرورية على GitHub
+
+# ========== Python ==========
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+*.pyo
+*.pyd
+
+# ========== Virtual Environments ==========
+venv/
+venv_test/
+env/
+ENV/
+.venv/
+
+# ========== IDEs ==========
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ========== Logs ==========
+*.log
+logs/
+
+# ========== Database (إذا لم تكن تريد رفعها) ==========
+# ⚠️ قرر: هل تريد رفع quran.db على GitHub؟
+# إذا نعم، احذف السطر التالي:
+# quran.db
+
+# ========== Cache Files (يجب رفعها!) ==========
+# ✅ هذه الملفات مهمة - لا تتجاهلها:
+# quran_embeddings.npy
+# quran_faiss_index.bin
+# quran_ids.npy
+# word_stats_cache.json
+# similarity_cache.npy
+# mutashabihat_kalima.json
+
+# ========== Model Cache (لن نستخدمه) ==========
+# ✅ نتجاهل Hugging Face cache
+.cache/
+models/
+huggingface/
+transformers_cache/
+
+# ========== Temporary Files ==========
+*.tmp
+*.temp
+tmp/
+temp/
+
+# ========== OS Files ==========
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ========== Node (Frontend) ==========
+node_modules/
+.npm
+.eslintcache
+dist/
+build/
+
+# ========== Environment Variables ==========
+.env
+.env.local
+.env.production
+
+# ========== Backup Files ==========
+*.backup
+*.bak
+*.old
+
+# ========== Large Files (Git LFS) ==========
+# إذا كانت الملفات أكبر من 100 MB، استخدم Git LFS
+# أو قم برفعها على Google Drive/Dropbox
+
+# ========== Test Files ==========
+test_*.py
+*_test.py
+tests/
+pytest_cache/
+
+# ============================================
+# ملاحظات مهمة:
+# ============================================
+# 1. قاعدة البيانات (quran.db): 2.36 MB ✅ يمكن رفعها
+# 2. الـ embeddings (*.npy): ~50 MB ✅ يمكن رفعها
+# 3. الـ cache files (*.json): ~35 MB ✅ يجب رفعها
+# 4. Model cache: 2+ GB ❌ لا ترفعها (تم تعطيله)
+# ============================================
