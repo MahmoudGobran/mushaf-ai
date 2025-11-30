@@ -32,7 +32,7 @@ from difflib import SequenceMatcher
 from contextlib import asynccontextmanager
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
+#from sentence_transformers import SentenceTransformer
 import json
 from pathlib import Path as FilePath
 import sqlite3
@@ -78,13 +78,18 @@ print(f"⚡ Workers: {WORKERS}")
 # استيراد دوال المعالجة
 from similarity import normalize_arabic_text as clean_text, highlight_differences, calculate_similarity, highlight_words_in_text
 
-try:
-    from embedding_processor import load_or_generate_embeddings
-    EMBEDDING_AVAILABLE = True
-except ImportError:
-    EMBEDDING_AVAILABLE = False
-    print("⚠️ تحذير: embedding_processor غير متاح. سيتم استخدام البحث اللفظي فقط.")
 
+# ============================================
+# ❌ تعطيل نظام embeddings في Production
+# ============================================
+EMBEDDING_AVAILABLE = False
+print("⚠️ نظام embeddings معطل في Production - سيتم استخدام البحث اللفظي فقط")
+
+# تعطيل المتغيرات العالمية
+QURAN_EMBEDDINGS = None
+QURAN_IDS = None  
+FAISS_INDEX = None
+EMBEDDING_MODEL = None
 
 # ============================================
 # 🚫 قائمة استثناءات للمتشابهات 100% (لا تُظهر)
@@ -150,7 +155,7 @@ def is_basmala_text(text: str) -> bool:
 QURAN_EMBEDDINGS: Optional[np.ndarray] = None
 QURAN_IDS: Optional[np.ndarray] = None
 FAISS_INDEX: Optional[faiss.Index] = None
-EMBEDDING_MODEL: Optional[SentenceTransformer] = None
+EMBEDDING_MODEL: Optional[any] = None
 
 # ============================================
 # 🏆 متغيرات جديدة لوضع الخبير
@@ -199,38 +204,25 @@ def is_basmala_verse(verse: Verse) -> bool:
     return len(verse_clean) < 30 and any(word in verse_clean for word in ['بسم', 'الله', 'الرحمن', 'الرحيم'])
 
 def initialize_search_engine(db: Session):
-    """تهيئة محرك البحث الدلالي (FAISS)"""
+    """تهيئة محرك البحث الدلالي (FAISS) - معطل في Production"""
     global QURAN_EMBEDDINGS, QURAN_IDS, FAISS_INDEX, EMBEDDING_MODEL
     
-    if not EMBEDDING_AVAILABLE:
-        print("⚠️ تخطي تهيئة FAISS (embedding_processor غير متاح)")
-        return
-    
     print("\n" + "="*60)
-    print("🚀 بدء تهيئة محرك البحث الدلالي (FAISS)")
+    print("🚫 نظام FAISS معطل في Production - استخدام البحث اللفظي فقط")
     print("="*60 + "\n")
     
-    start_time = time.time()
+    # تعطيل جميع متغيرات FAISS والبحث الدلالي
+    QURAN_EMBEDDINGS = None
+    QURAN_IDS = None
+    FAISS_INDEX = None
+    EMBEDDING_MODEL = None
     
-    try:
-        QURAN_EMBEDDINGS, QURAN_IDS, FAISS_INDEX, EMBEDDING_MODEL = load_or_generate_embeddings(db)
-        
-        elapsed = time.time() - start_time
-        
-        if FAISS_INDEX:
-            print(f"✅ تم تحميل/توليد الفهرس بنجاح")
-            print(f"   📊 عدد الآيات المفهرسة: {FAISS_INDEX.ntotal}")
-            print(f"   📊 أبعاد المتجهات: {QURAN_EMBEDDINGS.shape[1]}")
-            print(f"   ⏰ زمن التهيئة: {elapsed:.2f} ثانية")
-            print("\n💡 النظام جاهز للبحث السريع (الهجين الذكي)")
-            print("   • FAISS يجد المرشحين → سريع ⚡")
-            print("   • حساب التشابه اللفظي → دقيق ✓\n")
-        else:
-            print("⚠️ FAISS غير متاح. سيتم استخدام البحث اللفظي فقط")
-            
-    except Exception as e:
-        print(f"❌ خطأ في تهيئة FAISS: {e}")
-        print("⚠️ سيتم استخدام البحث اللفظي فقط")
+    print("✅ تم تعطيل نظام FAISS والبحث الدلالي بنجاح")
+    print("💡 النظام سيعمل بالبحث اللفظي فقط (أسرع وأخف)")
+    print("   • البحث النصي الدقيق → دقيق 100% ✓")
+    print("   • التشابه اللفظي → نتائج مضمونة ✓")
+    print("   • FTS5 → بحث فوري أثناء الكتابة ⚡")
+    print("   • Cache → متشابهات فورية 🚀\n")
 
 # ============================================
 # 🚀 دوال جديدة للتحسينات
@@ -1049,32 +1041,10 @@ def exact_text_search(db: Session, query: str, limit: int = 20) -> List[dict]:
     return exact_matches
 
 def semantic_search(query: str, limit: int = 100):
-    """البحث الدلالي باستخدام FAISS"""
-    global FAISS_INDEX, EMBEDDING_MODEL, QURAN_IDS
-    
-    if not EMBEDDING_AVAILABLE or FAISS_INDEX is None:
-        return []
-    
-    try:
-        # تحويل الاستعلام إلى متجه
-        query_embedding = EMBEDDING_MODEL.encode([query])
-        query_embedding = query_embedding.astype('float32')
-        
-        # البحث في الفهرس
-        k = min(limit, FAISS_INDEX.ntotal)
-        distances, indices = FAISS_INDEX.search(query_embedding, k)
-        
-        # جلب الآيات المرشحة
-        candidate_verses = []
-        for i, idx in enumerate(indices[0]):
-            verse_id = int(QURAN_IDS[idx])
-            candidate_verses.append(verse_id)
-            
-        return candidate_verses
-        
-    except Exception as e:
-        print(f"❌ خطأ في البحث الدلالي: {e}")
-        return []
+    """البحث الدلالي باستخدام FAISS - معطل في Production"""
+    print(f"⚠️ البحث الدلالي معطل للاستعلام: '{query}'")
+    print("💡 يتم استخدام البحث اللفظي بدلاً منه (أسرع وأدق)")
+    return []  # إرجاع قائمة فارغة
 
 def fallback_search(db: Session, query: str, limit: int = 20, threshold: float = 0.7, error: str = None):
     """
