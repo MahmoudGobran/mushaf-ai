@@ -78,13 +78,18 @@ print(f"⚡ Workers: {WORKERS}")
 # استيراد دوال المعالجة
 from similarity import normalize_arabic_text as clean_text, highlight_differences, calculate_similarity, highlight_words_in_text
 
-try:
-    from embedding_processor import load_or_generate_embeddings
-    EMBEDDING_AVAILABLE = True
-except ImportError:
-    EMBEDDING_AVAILABLE = False
-    print("⚠️ تحذير: embedding_processor غير متاح. سيتم استخدام البحث اللفظي فقط.")
 
+# ============================================
+# ❌ تعطيل نظام embeddings في Production
+# ============================================
+EMBEDDING_AVAILABLE = False
+print("⚠️ نظام embeddings معطل في Production - سيتم استخدام البحث اللفظي فقط")
+
+# تعطيل المتغيرات العالمية
+QURAN_EMBEDDINGS = None
+QURAN_IDS = None  
+FAISS_INDEX = None
+EMBEDDING_MODEL = None
 
 # ============================================
 # 🚫 قائمة استثناءات للمتشابهات 100% (لا تُظهر)
@@ -150,7 +155,7 @@ def is_basmala_text(text: str) -> bool:
 QURAN_EMBEDDINGS: Optional[np.ndarray] = None
 QURAN_IDS: Optional[np.ndarray] = None
 FAISS_INDEX: Optional[faiss.Index] = None
-EMBEDDING_MODEL: Optional[any] = None  # ✅ تم التعديل
+EMBEDDING_MODEL: Optional[any] = None
 
 # ============================================
 # 🏆 متغيرات جديدة لوضع الخبير
@@ -199,38 +204,25 @@ def is_basmala_verse(verse: Verse) -> bool:
     return len(verse_clean) < 30 and any(word in verse_clean for word in ['بسم', 'الله', 'الرحمن', 'الرحيم'])
 
 def initialize_search_engine(db: Session):
-    """تهيئة محرك البحث الدلالي (FAISS)"""
+    """تهيئة محرك البحث الدلالي (FAISS) - معطل في Production"""
     global QURAN_EMBEDDINGS, QURAN_IDS, FAISS_INDEX, EMBEDDING_MODEL
     
-    if not EMBEDDING_AVAILABLE:
-        print("⚠️ تخطي تهيئة FAISS (embedding_processor غير متاح)")
-        return
-    
     print("\n" + "="*60)
-    print("🚀 بدء تهيئة محرك البحث الدلالي (FAISS)")
+    print("🚫 نظام FAISS معطل في Production - استخدام البحث اللفظي فقط")
     print("="*60 + "\n")
     
-    start_time = time.time()
+    # تعطيل جميع متغيرات FAISS والبحث الدلالي
+    QURAN_EMBEDDINGS = None
+    QURAN_IDS = None
+    FAISS_INDEX = None
+    EMBEDDING_MODEL = None
     
-    try:
-        QURAN_EMBEDDINGS, QURAN_IDS, FAISS_INDEX, EMBEDDING_MODEL = load_or_generate_embeddings(db)
-        
-        elapsed = time.time() - start_time
-        
-        if FAISS_INDEX:
-            print(f"✅ تم تحميل/توليد الفهرس بنجاح")
-            print(f"   📊 عدد الآيات المفهرسة: {FAISS_INDEX.ntotal}")
-            print(f"   📊 أبعاد المتجهات: {QURAN_EMBEDDINGS.shape[1]}")
-            print(f"   ⏰ زمن التهيئة: {elapsed:.2f} ثانية")
-            print("\n💡 النظام جاهز للبحث السريع (الهجين الذكي)")
-            print("   • FAISS يجد المرشحين → سريع ⚡")
-            print("   • حساب التشابه اللفظي → دقيق ✓\n")
-        else:
-            print("⚠️ FAISS غير متاح. سيتم استخدام البحث اللفظي فقط")
-            
-    except Exception as e:
-        print(f"❌ خطأ في تهيئة FAISS: {e}")
-        print("⚠️ سيتم استخدام البحث اللفظي فقط")
+    print("✅ تم تعطيل نظام FAISS والبحث الدلالي بنجاح")
+    print("💡 النظام سيعمل بالبحث اللفظي فقط (أسرع وأخف)")
+    print("   • البحث النصي الدقيق → دقيق 100% ✓")
+    print("   • التشابه اللفظي → نتائج مضمونة ✓")
+    print("   • FTS5 → بحث فوري أثناء الكتابة ⚡")
+    print("   • Cache → متشابهات فورية 🚀\n")
 
 # ============================================
 # 🚀 دوال جديدة للتحسينات
@@ -298,11 +290,8 @@ def fast_text_search_fts(query: str, limit: int = 20):
         conn = sqlite3.connect('quran.db')
         cursor = conn.cursor()
         
-        clean_query = clean_text(query)
-        fts_query = ' OR '.join([f'"{word}"' for word in clean_query.split() if len(word) > 1])
-        
-        if not fts_query:
-            return []
+        # استخدام البحث بالكلمة كاملة (بدون تنظيف أو تقسيم) للرسم العثماني
+        fts_query = f'"{query}"'
         
         cursor.execute(f'''
             SELECT verses.* 
@@ -377,59 +366,25 @@ def build_similarity_cache(db: Session, min_similarity: float = 0.05):  # ✅ ا
         # البحث عن متشابهات لهذه الآية
         similar_verses = []
         
-        if FAISS_INDEX is not None and verse.id in QURAN_IDS:
-            try:
-                target_index = np.where(QURAN_IDS == verse.id)[0][0]
-                target_embedding = QURAN_EMBEDDINGS[target_index:target_index+1].astype('float32')
-                
-                k = min(200, FAISS_INDEX.ntotal)  # ✅ زيادة من 50 إلى 200
-                distances, indices = FAISS_INDEX.search(target_embedding, k)
-                
-                for idx in indices[0]:
-                    compare_id = int(QURAN_IDS[idx])
-                    if compare_id == verse.id:
-                        continue
-                    
-                    compare_verse = db.query(Verse).filter(Verse.id == compare_id).first()
-                    if not compare_verse:
-                        continue
-                    
-                    similarity = calculate_word_similarity(verse.text, compare_verse.text)
-                    
-                    # ✅ استخدام min_similarity المطلوب (ليس 0.6 ثابت)
-                    if similarity >= min_similarity and similarity < 0.99:
-                        similar_verses.append({
-                            'verse_id': compare_id,
-                            'surah': compare_verse.surah,
-                            'surah_name': compare_verse.surah_name,
-                            'ayah': compare_verse.ayah,
-                            'text': compare_verse.text,
-                            'similarity': similarity
-                        })
-            except Exception as e:
-                print(f"⚠️ خطأ في معالجة الآية {verse.id}: {e}")
-        
-
         # ✅ بحث احتياطي للمتشابهات 100%
-        if len(similar_verses) < 20:  # إذا كانت النتائج قليلة
-            for other_verse in all_verses:
-                if other_verse.id == verse.id:
-                    continue
-                    
-                similarity = calculate_word_similarity(verse.text, other_verse.text)
+        for other_verse in all_verses:
+            if other_verse.id == verse.id:
+                continue
                 
-                if similarity == 1.0 and not is_excluded_100_percent_match(verse.text, other_verse.text):
-                    # تأكد من عدم التكرار
-                    existing = any(sv['verse_id'] == other_verse.id for sv in similar_verses)
-                    if not existing:
-                        similar_verses.append({
-                            'verse_id': other_verse.id,
-                            'surah': other_verse.surah,
-                            'surah_name': other_verse.surah_name,
-                            'ayah': other_verse.ayah,
-                            'text': other_verse.text,
-                            'similarity': similarity
-                        })
+            similarity = calculate_word_similarity(verse.text, other_verse.text)
+            
+            if similarity >= min_similarity and similarity < 0.99:
+                # تأكد من عدم التكرار
+                existing = any(sv['verse_id'] == other_verse.id for sv in similar_verses)
+                if not existing:
+                    similar_verses.append({
+                        'verse_id': other_verse.id,
+                        'surah': other_verse.surah,
+                        'surah_name': other_verse.surah_name,
+                        'ayah': other_verse.ayah,
+                        'text': other_verse.text,
+                        'similarity': similarity
+                    })
 
         # ✅ تخزين 50 نتيجة كحد أقصى (كان 20)
         SIMILARITY_CACHE[verse.id] = similar_verses[:50]
@@ -1049,32 +1004,10 @@ def exact_text_search(db: Session, query: str, limit: int = 20) -> List[dict]:
     return exact_matches
 
 def semantic_search(query: str, limit: int = 100):
-    """البحث الدلالي باستخدام FAISS"""
-    global FAISS_INDEX, EMBEDDING_MODEL, QURAN_IDS
-    
-    if not EMBEDDING_AVAILABLE or FAISS_INDEX is None:
-        return []
-    
-    try:
-        # تحويل الاستعلام إلى متجه
-        query_embedding = EMBEDDING_MODEL.encode([query])
-        query_embedding = query_embedding.astype('float32')
-        
-        # البحث في الفهرس
-        k = min(limit, FAISS_INDEX.ntotal)
-        distances, indices = FAISS_INDEX.search(query_embedding, k)
-        
-        # جلب الآيات المرشحة
-        candidate_verses = []
-        for i, idx in enumerate(indices[0]):
-            verse_id = int(QURAN_IDS[idx])
-            candidate_verses.append(verse_id)
-            
-        return candidate_verses
-        
-    except Exception as e:
-        print(f"❌ خطأ في البحث الدلالي: {e}")
-        return []
+    """البحث الدلالي باستخدام FAISS - معطل في Production"""
+    print(f"⚠️ البحث الدلالي معطل للاستعلام: '{query}'")
+    print("💡 يتم استخدام البحث اللفظي بدلاً منه (أسرع وأدق)")
+    return []  # إرجاع قائمة فارغة
 
 def fallback_search(db: Session, query: str, limit: int = 20, threshold: float = 0.7, error: str = None):
     """
@@ -1145,6 +1078,72 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ============================================
+# 🆕 ENDPOINT الجديد: الصفحة الرئيسية
+# ============================================
+
+@app.get("/")
+def root():
+    """الصفحة الرئيسية للAPI"""
+    return {
+        "message": "مرحباً بك في مصحف AI API 🕌",
+        "version": "5.3.0",
+        "status": "يعمل بنجاح 🚀",
+        "endpoints": {
+            "search": "/search?q=الكلمة",
+            "search_fixed": "/search/fixed?q=الكلمة (يدعم الرسم العثماني)",
+            "live_search": "/search/live?q=الكلمة",
+            "similar_verses": "/similar/{verse_id}",
+            "quiz": "/quiz/get_question (POST)",
+            "stats": "/stats",
+            "performance": "/performance/stats",
+            "documentation": "/docs"
+        },
+        "note": "زور /docs للوثائق التفاعلية الكاملة"
+    }
+
+# ============================================
+# 🆕 ENDPOINT الجديد: بحث محسّن للرسم العثماني
+# ============================================
+
+@app.get("/search/fixed")
+def fixed_search(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(20, gt=0, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    🔍 بحث محسّن يدعم الرسم العثماني بالكامل
+    ✅ يبحث في النص الأصلي مباشرة (بدون تنظيف)
+    ✅ يدعم جميع أشكال الكتابة العثمانية
+    """
+    print(f"\n🎯 بحث محسّن للعثماني: '{q}'")
+    start_time = time.time()
+    
+    # البحث في النص الأصلي مباشرة (يدعم العثماني)
+    verses = db.query(Verse).filter(
+        Verse.text.contains(q)
+    ).limit(limit).all()
+    
+    results = []
+    for verse in verses:
+        results.append({
+            **verse.to_dict(),
+            'similarity': '1.0000',
+            'match_type': 'exact_original'
+        })
+    
+    elapsed = time.time() - start_time
+    
+    return {
+        "query": q,
+        "search_time": f"{elapsed:.3f}s",
+        "total_found": len(results),
+        "match_type": "exact_original",
+        "method": "contains_search",
+        "results": results
+    }
 
 # ============================================
 # 🚀 endpoints جديدة للتحسينات
