@@ -961,45 +961,43 @@ def all_words_in_sequence(query_words: list, verse_words: list) -> bool:
 
 def exact_text_search(db: Session, query: str, limit: int = 20) -> List[dict]:
     """
-    🔥 بحث نصي دقيق - يضمن نتائج 100% مطابقة
+    🔥 بحث نصي دقيق - يبحث في النصين الأصلي والنظيف
     """
     start_time = time.time()
     
     original_query = query.strip()
     query_clean = clean_text(query)
     
-    print(f"🔍 البحث النصي الدقيق عن: '{original_query}'")
+    print(f"🔍 البحث النصي الدقيق عن: '{original_query}' (نظيف: '{query_clean}')")
     
-    # إذا كانت العبارة متعددة الكلمات، استخدم البحث الدقيق للعبارات
-    if len(original_query.split()) > 1:
-        return exact_phrase_search(db, query, limit)
-    
-    # للكلمات المفردة - بحث دقيق
     exact_matches = []
     all_verses = db.query(Verse).all()
     
     for verse in all_verses:
         verse_text_original = verse.text
+        verse_clean = clean_text(verse.text)
         
-        # ✅ البحث في النص الأصلي أولاً
+        # ✅ البحث في النص الأصلي أولاً (للعثماني)
         if original_query in verse_text_original:
             verse_dict = verse.to_dict()
             verse_dict['similarity'] = "1.0000"
             verse_dict['match_type'] = 'exact_original'
             exact_matches.append(verse_dict)
+            continue
             
-        # ✅ ثم البحث في النص النظيف
-        elif query_clean and query_clean in clean_text(verse_text_original):
+        # ✅ البحث في النص النظيف (للعادي)
+        if query_clean and query_clean in verse_clean:
             verse_dict = verse.to_dict()
             verse_dict['similarity'] = "1.0000"
-            verse_dict['match_type'] = 'exact_clean'
+            verse_dict['match_type'] = 'exact_clean' 
             exact_matches.append(verse_dict)
+            continue
             
         if len(exact_matches) >= limit:
             break
     
     elapsed = time.time() - start_time
-    print(f"✅ البحث النصي الدقيق: {len(exact_matches)} نتيجة مطابقة 100% في {elapsed:.3f}ث")
+    print(f"✅ البحث النصي الدقيق: {len(exact_matches)} نتيجة في {elapsed:.3f}ث")
     
     return exact_matches
 
@@ -1143,6 +1141,66 @@ def fixed_search(
         "match_type": "exact_original",
         "method": "contains_search",
         "results": results
+    }
+
+@app.get("/search/both")
+def search_both_methods(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(20, gt=0, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    🔥 بحث شامل يدعم الكتابة العادية والعثمانية معاً
+    ✅ يبحث في النص الأصلي (العثماني) والنص النظيف (العادي)
+    """
+    print(f"\n🎯 بحث شامل: '{q}'")
+    start_time = time.time()
+    
+    # البحث بطريقتين معاً
+    results = []
+    
+    # الطريقة 1: البحث في النص الأصلي (العثماني)
+    verses_original = db.query(Verse).filter(
+        Verse.text.contains(q)
+    ).limit(limit).all()
+    
+    for verse in verses_original:
+        results.append({
+            **verse.to_dict(),
+            'similarity': '1.0000',
+            'match_type': 'exact_original',
+            'method': 'contains_original'
+        })
+    
+    # الطريقة 2: البحث في النص النظيف (العادي)
+    q_clean = clean_text(q)
+    all_verses = db.query(Verse).all()
+    
+    for verse in all_verses:
+        verse_clean = clean_text(verse.text)
+        if q_clean in verse_clean:
+            # تجنب التكرار
+            existing = any(r['id'] == verse.id for r in results)
+            if not existing:
+                results.append({
+                    **verse.to_dict(),
+                    'similarity': '1.0000', 
+                    'match_type': 'exact_clean',
+                    'method': 'contains_clean'
+                })
+        
+        if len(results) >= limit:
+            break
+    
+    elapsed = time.time() - start_time
+    
+    return {
+        "query": q,
+        "query_clean": q_clean,
+        "search_time": f"{elapsed:.3f}s",
+        "total_found": len(results),
+        "match_type": "both_methods",
+        "results": results[:limit]
     }
 
 # ============================================
