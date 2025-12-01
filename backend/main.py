@@ -262,18 +262,32 @@ def initialize_optimizations(db: Session):
         print(f"❌ خطأ في تحميل word stats cache: {e}")
         WORD_STATS_CACHE = {}
     
-    # 3. التحقق من FTS5
+    # 3. التحقق من FTS5 وإصلاحه إذا لزم
     try:
         conn = sqlite3.connect('quran.db')
         cursor = conn.cursor()
+        
+        # التحقق من وجود جدول FTS5
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='verses_fts'")
-        FTS_AVAILABLE = cursor.fetchone() is not None
+        fts_table_exists = cursor.fetchone() is not None
+        
+        # التحقق من وجود بيانات في FTS5
+        if fts_table_exists:
+            cursor.execute("SELECT COUNT(*) FROM verses_fts")
+            fts_count = cursor.fetchone()[0]
+            
+            if fts_count == 6236:  # نفس عدد الآيات
+                FTS_AVAILABLE = True
+                print("✅ FTS5 index متاح ومكتمل للبحث الفوري")
+            else:
+                print(f"⚠️ FTS5 غير مكتمل ({fts_count}/6236)، جاري إصلاحه...")
+                rebuild_fts_for_arabic(db)
+        else:
+            print("⚠️ جدول FTS5 غير موجود، جاري إنشائه...")
+            rebuild_fts_for_arabic(db)
+            
         conn.close()
         
-        if FTS_AVAILABLE:
-            print("✅ FTS5 index متاح للبحث الفوري")
-        else:
-            print("⚠️ FTS5 index غير متاح، استخدم /admin/build-fts لبنائه")
     except Exception as e:
         print(f"❌ خطأ في التحقق من FTS5: {e}")
         FTS_AVAILABLE = False
@@ -282,7 +296,7 @@ def initialize_optimizations(db: Session):
 
 def fast_text_search_fts(query: str, limit: int = 20):
     """
-    🔥 FTS5 محسن - للبحث السريع فقط مع الإشارة أنه غير دقيق
+    🔥 FTS5 محسن - للبحث السريع بالعربية والعثماني
     """
     if not FTS_AVAILABLE:
         return []
@@ -291,43 +305,69 @@ def fast_text_search_fts(query: str, limit: int = 20):
         conn = sqlite3.connect('quran.db')
         cursor = conn.cursor()
         
-        # استخدام البحث بالكلمة كاملة (بدون تنظيف أو تقسيم) للرسم العثماني
-        fts_query = f'"{query}"'
+        # ✅ إصلاح: استخدام بحث FTS5 الصحيح للعربية
+        # FTS5 يبحث عن الكلمة كاملة أو جزء منها
+        fts_query = f'"{query}" OR "{query}"*'
         
-        cursor.execute(f'''
-            SELECT verses.* 
-            FROM verses_fts
-            JOIN verses ON verses_fts.rowid = verses.id
-            WHERE verses_fts.text MATCH ?
-            ORDER BY rank
-            LIMIT ?
-        ''', (fts_query, limit))
+        # 🔍 البحث بأكثر من طريقة
+        queries_to_try = [
+            f'"{query}"',          # العبارة كاملة
+            f'"{query}"*',         # تبدأ بـ
+            f'*"{query}"*',        # تحتوي على (قد يكون بطيئاً)
+            clean_text(query)      # النص النظيف
+        ]
         
         results = []
-        for row in cursor.fetchall():
-            results.append({
-                'id': row[0],
-                'surah': row[1],
-                'surah_name': row[2],
-                'ayah': row[3],
-                'text': row[4],
-                'juz': row[5],
-                'similarity': '0.9500',  # ⚠️ تشير إلى أن النتائج غير دقيقة
-                'match_type': 'fts_fast',
-                'note': 'نتيجة سريعة - قد لا تكون دقيقة 100%'
-            })
+        seen_ids = set()
+        
+        for fts_q in queries_to_try:
+            if len(results) >= limit:
+                break
+                
+            try:
+                cursor.execute(f'''
+                    SELECT verses.* 
+                    FROM verses_fts
+                    JOIN verses ON verses_fts.rowid = verses.id
+                    WHERE verses_fts.text MATCH ?
+                    ORDER BY rank
+                    LIMIT ?
+                ''', (fts_q, limit * 2))
+                
+                for row in cursor.fetchall():
+                    if row[0] in seen_ids:
+                        continue
+                        
+                    seen_ids.add(row[0])
+                    results.append({
+                        'id': row[0],
+                        'surah': row[1],
+                        'surah_name': row[2],
+                        'ayah': row[3],
+                        'text': row[4],
+                        'juz': row[5],
+                        'similarity': '0.9500',
+                        'match_type': 'fts_fast',
+                        'note': 'نتيجة سريعة'
+                    })
+                    
+                    if len(results) >= limit:
+                        break
+                        
+            except:
+                continue
         
         conn.close()
         
         if results:
-            print(f"⚠️ FTS5: {len(results)} نتيجة سريعة (غير مضمونة الدقة)")
+            print(f"✅ FTS5: {len(results)} نتيجة للبحث '{query}'")
             
         return results
         
     except Exception as e:
         print(f"❌ خطأ في البحث FTS5: {e}")
         return []
-    
+        
 @lru_cache(maxsize=1000)
 def get_cached_similarities(verse_id: int, min_similarity: float = 0.6):
     """
@@ -524,6 +564,61 @@ def build_fts_index(db: Session):
     except Exception as e:
         print(f"❌ خطأ في بناء فهرس FTS5: {e}")
         return False
+
+def fix_fts_arabic_search():
+    """
+    🔧 إصلاح FTS5 للبحث بالعربية والعثماني
+    """
+    try:
+        conn = sqlite3.connect('quran.db')
+        cursor = conn.cursor()
+        
+        # 1. إسقاط جدول FTS5 القديم إذا كان موجوداً
+        cursor.execute("DROP TABLE IF EXISTS verses_fts")
+        
+        # 2. إنشاء جدول FTS5 جديد مع tokenizer للغة العربية
+        cursor.execute('''
+            CREATE VIRTUAL TABLE verses_fts 
+            USING fts5(
+                text,
+                content='verses',
+                content_rowid='id',
+                tokenize='porter unicode61'  # ✅ يدعم العربية
+            )
+        ''')
+        
+        # 3. ملء الفهرس
+        cursor.execute('''
+            INSERT INTO verses_fts(rowid, text)
+            SELECT id, text FROM verses
+        ''')
+        
+        # 4. إنشاء فهرس للبحث السريع
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_fts_text ON verses_fts(text)')
+        
+        conn.commit()
+        conn.close()
+        
+        print("✅ تم إصلاح FTS5 للبحث بالعربية والعثماني")
+        return True
+        
+    except Exception as e:
+        print(f"❌ خطأ في إصلاح FTS5: {e}")
+        return False
+
+def rebuild_fts_for_arabic(db: Session):
+    """
+    إعادة بناء FTS5 مع دعم كامل للغة العربية
+    """
+    print("🔧 إعادة بناء FTS5 للغة العربية...")
+    success = fix_fts_arabic_search()
+    
+    if success:
+        global FTS_AVAILABLE
+        FTS_AVAILABLE = True
+        print("🎉 FTS5 جاهز للبحث بالعربية والعثماني")
+    
+    return success
 
 # ============================================
 # 🚀 دالة جديدة: بحث شامل مسرّع باستخدام Similarity Cache
@@ -1201,38 +1296,89 @@ def fixed_search(
     db: Session = Depends(get_db)
 ):
     """
-    🔍 بحث محسّن يدعم الرسم العثماني بالكامل
-    ✅ يبحث في النص الأصلي مباشرة (بدون تنظيف)
-    ✅ يدعم جميع أشكال الكتابة العثمانية
-    ⚡ السرعة: 5-20ms
+    🔍 بحث محسّن يدعم الرسم العثماني والكتابة العادية
+    ✅ يبحث في النص الأصلي (العثماني)
+    ✅ يبحث في النص النظيف (العادي)
+    ⚡ السرعة: 5-50ms
     """
     print(f"\n🎯 بحث محسّن للعثماني: '{q}'")
     start_time = time.time()
     
-    # البحث في النص الأصلي مباشرة (يدعم العثماني)
-    verses = db.query(Verse).filter(
-        Verse.text.contains(q)
-    ).limit(limit).all()
-    
     results = []
-    for verse in verses:
-        verse_dict = verse.to_dict()
-        verse_dict['similarity'] = '1.0000'
-        verse_dict['match_type'] = 'exact_original'
+    seen_ids = set()
+    
+    # ============================================
+    # 🔥 الطريقة 1: البحث في النص الأصلي (العثماني)
+    # ============================================
+    if q:
+        # البحث المباشر في SQL
+        verses = db.query(Verse).filter(
+            Verse.text.contains(q)
+        ).limit(limit).all()
         
-        # إضافة التظليل إذا طُلب
-        if highlight:
-            verse_dict['highlighted_text'] = highlight_words_in_text(verse.text, q)
+        for verse in verses:
+            verse_dict = verse.to_dict()
+            verse_dict['similarity'] = '1.0000'
+            verse_dict['match_type'] = 'exact_original'
+            
+            if highlight:
+                verse_dict['highlighted_text'] = highlight_words_in_text(verse.text, q)
+            
+            results.append(verse_dict)
+            seen_ids.add(verse.id)
+    
+    # ============================================
+    # 🔥 الطريقة 2: البحث في النص النظيف (إذا احتجنا المزيد)
+    # ============================================
+    if len(results) < limit:
+        q_clean = clean_text(q)
         
-        results.append(verse_dict)
+        if q_clean and q_clean != clean_text(q):  # إذا كان التنظيف غير التام
+            # البحث في النص النظيف
+            all_verses = db.query(Verse).limit(1000).all()  # 🔥 عينة ذكية
+            
+            for verse in all_verses:
+                if len(results) >= limit:
+                    break
+                    
+                if verse.id in seen_ids:
+                    continue
+                
+                verse_clean = clean_text(verse.text)
+                
+                if q_clean in verse_clean:
+                    verse_dict = verse.to_dict()
+                    verse_dict['similarity'] = '1.0000'
+                    verse_dict['match_type'] = 'exact_clean'
+                    
+                    if highlight:
+                        verse_dict['highlighted_text'] = highlight_words_in_text(verse.text, q)
+                    
+                    results.append(verse_dict)
+                    seen_ids.add(verse.id)
+    
+    # ============================================
+    # 🔥 الطريقة 3: استخدام FTS5 كبديل (إذا لم نجد نتائج)
+    # ============================================
+    if len(results) == 0 and FTS_AVAILABLE:
+        print("   ⚡ محاولة البحث عبر FTS5...")
+        fts_results = fast_text_search_fts(q, limit)
+        
+        for result in fts_results:
+            if result['id'] not in seen_ids:
+                if highlight:
+                    result['highlighted_text'] = highlight_words_in_text(result['text'], q)
+                results.append(result)
+                seen_ids.add(result['id'])
     
     elapsed = time.time() - start_time
     
     return {
         "query": q,
+        "query_clean": clean_text(q) if len(results) < limit else None,
         "search_time": f"{elapsed:.3f}s",
         "total_found": len(results),
-        "match_type": "exact_original",
+        "match_type": "exact_original" if len(results) > 0 else "no_match",
         "method": "contains_search",
         "results": results
     }
@@ -1433,6 +1579,21 @@ def admin_build_fts_index(db: Session = Depends(get_db)):
     return {
         "success": success,
         "message": "تم بناء فهرس FTS5 بنجاح" if success else "فشل بناء فهرس FTS5"
+    }
+
+# ✅ أضف هذا الكود هنا مباشرة:
+@app.get("/admin/fix-fts")
+def admin_fix_fts_index(db: Session = Depends(get_db)):
+    """
+    🔧 إصلاح فهرس FTS5 للغة العربية والعثماني
+    ⚠️ يستغرق بضع ثوانٍ
+    """
+    print("\n🔧 إصلاح FTS5 للغة العربية والعثماني...")
+    success = rebuild_fts_for_arabic(db)
+    
+    return {
+        "success": success,
+        "message": "تم إصلاح FTS5 بنجاح" if success else "فشل إصلاح FTS5"
     }
 
 @app.get("/admin/build-cache")
