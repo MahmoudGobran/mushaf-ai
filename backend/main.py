@@ -980,16 +980,17 @@ def semantic_search(query: str, limit: int = 100):
 
 def optimized_text_search(db: Session, query: str, limit: int = 20) -> List[dict]:
     """
-    🔍 بحث نصي محسّن وسريع
+    🔍 بحث نصي محسّن وسريع - نسخة محسنة للنتائج الكثيرة
     ✅ يدعم جميع أشكال الكتابة
     ⚡ أسرع 10-100 مرة من النسخة القديمة
+    🚀 يدعم الآلاف من النتائج
     """
     start_time = time.time()
     
     original_query = query.strip()
     query_clean = clean_text(query)
     
-    print(f"🔍 بحث نصي محسّن: '{original_query}'")
+    print(f"🔍 بحث نصي محسّن: '{original_query}' (الحد: {limit})")
     
     results = []
     seen_ids = set()
@@ -998,11 +999,13 @@ def optimized_text_search(db: Session, query: str, limit: int = 20) -> List[dict
     # 🔥 الطريقة 1: البحث المباشر في SQL (العثماني)
     # ============================================
     if original_query:
-        direct_matches = db.query(Verse).filter(
+        # 🔥 البحث في قاعدة البيانات مباشرة
+        # استخدم ILIKE أو LIKE للحساسية للحالة (إذا كانت قاعدة البيانات تدعم)
+        verses = db.query(Verse).filter(
             Verse.text.contains(original_query)
-        ).limit(limit).all()
+        ).limit(min(limit, 1000)).all()  # 🔥 حد مؤقت لأداء أفضل
         
-        for verse in direct_matches:
+        for verse in verses:
             results.append({
                 **verse.to_dict(),
                 'similarity': '1.0000',
@@ -1022,64 +1025,87 @@ def optimized_text_search(db: Session, query: str, limit: int = 20) -> List[dict
                 seen_ids.add(result['id'])
     
     # ============================================
-    # 🔥 الطريقة 3: البحث النظيف الذكي
+    # 🔥 الطريقة 3: البحث النظيف الذكي للنتائج الكثيرة
     # ============================================
     if len(results) < limit and query_clean:
-        # تقسيم الاستعلام إلى كلمات
+        print(f"   🔍 البحث النظيف (مطلوب {limit - len(results)} نتيجة إضافية)")
+        
+        # إذا كنا نبحث عن كلمة شائعة جداً (مثل "الله")
+        # نستخدم استراتيجية مختلفة للكفاءة
+        
         query_words = query_clean.split()
         
-        if len(query_words) == 1:
-            # إذا كان كلمة واحدة، بحث بسيط
-            sample_verses = db.query(Verse).limit(500).all()
-            
-            for verse in sample_verses:
-                if len(results) >= limit:
-                    break
+        if len(query_words) == 1 and len(query_clean) > 2:
+            # كلمة واحدة - بحث ذكي
+            # استخدم SQL للبحث الجزئي إذا أمكن
+            try:
+                # البحث باستخدام LIKE (أبطأ ولكن شامل)
+                if limit > 100:  # إذا كنا نريد نتائج كثيرة
+                    print(f"   ⚡ استخدام بحث LIKE للكلمة '{query_clean}'")
                     
-                if verse.id in seen_ids:
-                    continue
-                
-                verse_clean = clean_text(verse.text)
-                
-                if query_clean in verse_clean:
-                    results.append({
-                        **verse.to_dict(),
-                        'similarity': '1.0000',
-                        'match_type': 'clean_match'
-                    })
-                    seen_ids.add(verse.id)
-        
-        elif len(query_words) > 1:
-            # إذا كانت عبارة، بحث ذكي
-            # البحث عن آيات بها الكلمة الأولى
-            first_word = query_words[0]
-            if len(first_word) > 2:
-                candidate_verses = db.query(Verse).filter(
-                    Verse.text.contains(first_word)
-                ).limit(200).all()
-                
-                for verse in candidate_verses:
-                    if len(results) >= limit:
-                        break
-                        
-                    if verse.id in seen_ids:
-                        continue
+                    # استخدم SQL مباشرة للبحث السريع
+                    conn = sqlite3.connect('quran.db')
+                    cursor = conn.cursor()
                     
-                    verse_clean = clean_text(verse.text)
+                    cursor.execute(f'''
+                        SELECT * FROM verses 
+                        WHERE text LIKE ?
+                        LIMIT ?
+                    ''', (f'%{query_clean}%', limit * 2))
                     
-                    # التحقق من وجود كل كلمات الاستعلام
-                    if all(word in verse_clean for word in query_words):
+                    for row in cursor.fetchall():
+                        if len(results) >= limit:
+                            break
+                            
+                        if row[0] in seen_ids:
+                            continue
+                            
                         results.append({
-                            **verse.to_dict(),
+                            'id': row[0],
+                            'surah': row[1],
+                            'surah_name': row[2],
+                            'ayah': row[3],
+                            'text': row[4],
+                            'juz': row[5],
                             'similarity': '1.0000',
-                            'match_type': 'phrase_match'
+                            'match_type': 'like_search'
                         })
-                        seen_ids.add(verse.id)
+                        seen_ids.add(row[0])
+                    
+                    conn.close()
+                else:
+                    # بحث عادي في عينة
+                    sample_verses = db.query(Verse).limit(1000).all()
+                    
+                    for verse in sample_verses:
+                        if len(results) >= limit:
+                            break
+                            
+                        if verse.id in seen_ids:
+                            continue
+                        
+                        verse_clean = clean_text(verse.text)
+                        
+                        if query_clean in verse_clean:
+                            results.append({
+                                **verse.to_dict(),
+                                'similarity': '1.0000',
+                                'match_type': 'clean_match'
+                            })
+                            seen_ids.add(verse.id)
+                            
+            except Exception as e:
+                print(f"   ⚠️ خطأ في البحث الذكي: {e}")
+                # العودة للبحث العادي
     
     elapsed = time.time() - start_time
-    print(f"✅ البحث النصي المحسّن: {len(results)} نتيجة في {elapsed:.3f}ث")
     
-    return results
+    if len(results) > 100:
+        print(f"✅ البحث النصي المحسّن: {len(results)} نتيجة في {elapsed:.3f}ث (كثير!)")
+    else:
+        print(f"✅ البحث النصي المحسّن: {len(results)} نتيجة في {elapsed:.3f}ث")
+    
+    return results[:limit]  # تأكيد عدم تجاوز الحد
 
 # ============================================
 # 🆕 دوال مساعدة جديدة للاختبارات
@@ -1457,6 +1483,113 @@ def search_both_methods(
         "results": results[:limit]
     }
 
+@app.get("/search/all")
+def search_all_verses(
+    q: str = Query(..., min_length=1),
+    limit: int = Query(10000, gt=0, le=20000),
+    highlight: bool = Query(False, description="تظليل النتائج (يبطئ مع النتائج الكثيرة)"),
+    db: Session = Depends(get_db)
+):
+    """
+    🔍 بحث شامل لجميع النتائج بدون حدود صارمة
+    ⚠️ قد يكون بطيئاً مع النتائج الكثيرة
+    """
+    print(f"\n{'='*60}")
+    print(f"🔍 بحث شامل: '{q}' (الحد: {limit})")
+    print(f"{'='*60}")
+    
+    start_time = time.time()
+    
+    try:
+        # استخدام البحث المحسن مع limit كبير
+        exact_results = optimized_text_search(db, q, limit)
+
+        # إضافة التظليل إذا طُلب (قد يبطئ)
+        if highlight and exact_results:
+            print(f"   🎨 تطبيق التظليل على {len(exact_results)} نتيجة...")
+            for result in exact_results:
+                result['highlighted_text'] = highlight_words_in_text(result['text'], q)
+    
+        elapsed = time.time() - start_time
+        
+        print(f"✅ البحث الشامل: {len(exact_results)} نتيجة في {elapsed:.3f}ث")
+        
+        return {
+            "query": q,
+            "search_time": f"{elapsed:.3f}s",
+            "total_found": len(exact_results),
+            "limit_used": limit,
+            "match_type": "exact_all",
+            "results": exact_results
+        }
+
+    except Exception as e:
+        print(f"❌ خطأ في البحث الشامل: {e}")
+        return {
+            "query": q,
+            "error": str(e),
+            "total_found": 0,
+            "results": []
+        }
+
+@app.get("/search/count")
+def count_word_occurrences(
+    q: str = Query(..., min_length=1),
+    db: Session = Depends(get_db)
+):
+    """
+    📊 حساب عدد مرات تكرار الكلمة في القرآن
+    ⚡ سريع جداً (يستخدم cache)
+    """
+    print(f"\n📊 حساب تكرارات: '{q}'")
+    start_time = time.time()
+    
+    q_clean = clean_text(q)
+    
+    if len(q_clean) < 2:
+        raise HTTPException(status_code=400, detail="الكلمة قصيرة جداً")
+    
+    # استخدام cache إذا متاح
+    if WORD_STATS_CACHE and q_clean in WORD_STATS_CACHE:
+        stats = WORD_STATS_CACHE[q_clean]
+        elapsed = time.time() - start_time
+        
+        return {
+            "word": q,
+            "word_normalized": q_clean,
+            "total_count": stats['total_count'],
+            "verses_count": stats['verses_count'],
+            "search_time": f"{elapsed:.3f}s",
+            "source": "cache",
+            "note": "يستخدم /search/all للحصول على النتائج الكاملة"
+        }
+    
+    # حساب يدوي
+    total_count = 0
+    verses_count = 0
+    
+    all_verses = db.query(Verse).all()
+    
+    for verse in all_verses:
+        verse_clean = clean_text(verse.text)
+        count = verse_clean.count(q_clean)
+        
+        if count > 0:
+            total_count += count
+            verses_count += 1
+    
+    elapsed = time.time() - start_time
+    
+    return {
+        "word": q,
+        "word_normalized": q_clean,
+        "total_count": total_count,
+        "verses_count": verses_count,
+        "search_time": f"{elapsed:.3f}s",
+        "source": "direct_count",
+        "note": f"الكلمة '{q}' تظهر {total_count} مرة في {verses_count} آية"
+    }
+
 # ============================================
 # 🚀 endpoints جديدة للتحسينات
 # ============================================
@@ -1739,7 +1872,7 @@ def get_word_statistics(
 @app.get("/search")
 def search_verses(
     q: str = Query(..., min_length=1),
-    limit: int = Query(20, gt=0, le=100),
+    limit: int = Query(20, gt=0, le=10000),
     threshold: float = Query(0.7, ge=0.05, le=1.0),  # ✅ رفع من 0.1 إلى 0.7
     highlight: bool = Query(True, description="تظليل الكلمات في النتائج"),
     db: Session = Depends(get_db)
