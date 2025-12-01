@@ -68,13 +68,13 @@ desktop.ini
 node_modules/
 .npm
 .eslintcache
-dist/
+#dist/
 build/
 
 # ========== Environment Variables ==========
 .env
 .env.local
-.env.production
+#.env.production
 
 # ========== Backup Files ==========
 *.backup
