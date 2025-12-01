@@ -1437,7 +1437,7 @@ def admin_build_fts_index(db: Session = Depends(get_db)):
 
 @app.get("/admin/build-cache")
 def admin_build_cache(
-    cache_type: str = Query("all", regex="^(all|similarity|word_stats)$"),
+    cache_type: str = Query("all", pattern="^(all|similarity|word_stats)$"),
     min_similarity: float = Query(0.1, ge=0.05, le=1.0),  # ✅ إضافة معامل جديد
     db: Session = Depends(get_db)
 ):
@@ -1646,7 +1646,7 @@ def get_similar_verses(
     limit: int = Query(10, gt=0, le=50),
     threshold: float = Query(0.4, ge=0.3, le=1.0),
     exclude_basmala: bool = Query(True),
-    method: str = Query("smart", regex="^(smart|semantic|lexical)$"),
+    method: str = Query("smart", pattern="^(smart|semantic|lexical)$"),
     db: Session = Depends(get_db)
 ):
     """
