@@ -1,5 +1,5 @@
 """
-الخادم الرئيسي - نسخة هجينة ذكية (Smart Hybrid V5.3) + وضع الخبير 🏆
+الخادم الرئيسي - نسخة هجينة ذكية (Smart Hybrid V5.2) + وضع الخبير 🏆
 ✅ FAISS للعثور على المرشحين (سريع)
 ✅ حساب التشابه اللفظي للنتائج النهائية (دقيق)
 ✅ استبعاد 100% من Quiz
@@ -18,14 +18,13 @@
 ✅ AutoComplete للاقتراحات
 ✅ نظام بناء فهارس تلقائي
 ✅ 🚀 بحث شامل مسرّع باستخدام Similarity Cache
-✅ 🔍 بحث نصي محسّن وسريع
 """
 
 import random
 from fastapi import FastAPI, Depends, HTTPException, Query, Path
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from database import get_db, Verse, init_db
 from typing import List, Optional
 import time
@@ -262,32 +261,18 @@ def initialize_optimizations(db: Session):
         print(f"❌ خطأ في تحميل word stats cache: {e}")
         WORD_STATS_CACHE = {}
     
-    # 3. التحقق من FTS5 وإصلاحه إذا لزم
+    # 3. التحقق من FTS5
     try:
         conn = sqlite3.connect('quran.db')
         cursor = conn.cursor()
-        
-        # التحقق من وجود جدول FTS5
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='verses_fts'")
-        fts_table_exists = cursor.fetchone() is not None
-        
-        # التحقق من وجود بيانات في FTS5
-        if fts_table_exists:
-            cursor.execute("SELECT COUNT(*) FROM verses_fts")
-            fts_count = cursor.fetchone()[0]
-            
-            if fts_count == 6236:  # نفس عدد الآيات
-                FTS_AVAILABLE = True
-                print("✅ FTS5 index متاح ومكتمل للبحث الفوري")
-            else:
-                print(f"⚠️ FTS5 غير مكتمل ({fts_count}/6236)، جاري إصلاحه...")
-                rebuild_fts_for_arabic(db)
-        else:
-            print("⚠️ جدول FTS5 غير موجود، جاري إنشائه...")
-            rebuild_fts_for_arabic(db)
-            
+        FTS_AVAILABLE = cursor.fetchone() is not None
         conn.close()
         
+        if FTS_AVAILABLE:
+            print("✅ FTS5 index متاح للبحث الفوري")
+        else:
+            print("⚠️ FTS5 index غير متاح، استخدم /admin/build-fts لبنائه")
     except Exception as e:
         print(f"❌ خطأ في التحقق من FTS5: {e}")
         FTS_AVAILABLE = False
@@ -296,7 +281,7 @@ def initialize_optimizations(db: Session):
 
 def fast_text_search_fts(query: str, limit: int = 20):
     """
-    🔥 FTS5 محسن - للبحث السريع بالعربية والعثماني
+    🔥 FTS5 محسن - للبحث السريع فقط مع الإشارة أنه غير دقيق
     """
     if not FTS_AVAILABLE:
         return []
@@ -305,69 +290,43 @@ def fast_text_search_fts(query: str, limit: int = 20):
         conn = sqlite3.connect('quran.db')
         cursor = conn.cursor()
         
-        # ✅ إصلاح: استخدام بحث FTS5 الصحيح للعربية
-        # FTS5 يبحث عن الكلمة كاملة أو جزء منها
-        fts_query = f'"{query}" OR "{query}"*'
+        # استخدام البحث بالكلمة كاملة (بدون تنظيف أو تقسيم) للرسم العثماني
+        fts_query = f'"{query}"'
         
-        # 🔍 البحث بأكثر من طريقة
-        queries_to_try = [
-            f'"{query}"',          # العبارة كاملة
-            f'"{query}"*',         # تبدأ بـ
-            f'*"{query}"*',        # تحتوي على (قد يكون بطيئاً)
-            clean_text(query)      # النص النظيف
-        ]
+        cursor.execute(f'''
+            SELECT verses.* 
+            FROM verses_fts
+            JOIN verses ON verses_fts.rowid = verses.id
+            WHERE verses_fts.text MATCH ?
+            ORDER BY rank
+            LIMIT ?
+        ''', (fts_query, limit))
         
         results = []
-        seen_ids = set()
-        
-        for fts_q in queries_to_try:
-            if len(results) >= limit:
-                break
-                
-            try:
-                cursor.execute(f'''
-                    SELECT verses.* 
-                    FROM verses_fts
-                    JOIN verses ON verses_fts.rowid = verses.id
-                    WHERE verses_fts.text MATCH ?
-                    ORDER BY rank
-                    LIMIT ?
-                ''', (fts_q, limit * 2))
-                
-                for row in cursor.fetchall():
-                    if row[0] in seen_ids:
-                        continue
-                        
-                    seen_ids.add(row[0])
-                    results.append({
-                        'id': row[0],
-                        'surah': row[1],
-                        'surah_name': row[2],
-                        'ayah': row[3],
-                        'text': row[4],
-                        'juz': row[5],
-                        'similarity': '0.9500',
-                        'match_type': 'fts_fast',
-                        'note': 'نتيجة سريعة'
-                    })
-                    
-                    if len(results) >= limit:
-                        break
-                        
-            except:
-                continue
+        for row in cursor.fetchall():
+            results.append({
+                'id': row[0],
+                'surah': row[1],
+                'surah_name': row[2],
+                'ayah': row[3],
+                'text': row[4],
+                'juz': row[5],
+                'similarity': '0.9500',  # ⚠️ تشير إلى أن النتائج غير دقيقة
+                'match_type': 'fts_fast',
+                'note': 'نتيجة سريعة - قد لا تكون دقيقة 100%'
+            })
         
         conn.close()
         
         if results:
-            print(f"✅ FTS5: {len(results)} نتيجة للبحث '{query}'")
+            print(f"⚠️ FTS5: {len(results)} نتيجة سريعة (غير مضمونة الدقة)")
             
         return results
         
     except Exception as e:
         print(f"❌ خطأ في البحث FTS5: {e}")
         return []
-        
+    
 @lru_cache(maxsize=1000)
 def get_cached_similarities(verse_id: int, min_similarity: float = 0.6):
     """
@@ -564,61 +523,6 @@ def build_fts_index(db: Session):
     except Exception as e:
         print(f"❌ خطأ في بناء فهرس FTS5: {e}")
         return False
-
-def fix_fts_arabic_search():
-    """
-    🔧 إصلاح FTS5 للبحث بالعربية والعثماني
-    """
-    try:
-        conn = sqlite3.connect('quran.db')
-        cursor = conn.cursor()
-        
-        # 1. إسقاط جدول FTS5 القديم إذا كان موجوداً
-        cursor.execute("DROP TABLE IF EXISTS verses_fts")
-        
-        # 2. إنشاء جدول FTS5 جديد مع tokenizer للغة العربية
-        cursor.execute('''
-            CREATE VIRTUAL TABLE verses_fts 
-            USING fts5(
-                text,
-                content='verses',
-                content_rowid='id',
-                tokenize='porter unicode61'  # ✅ يدعم العربية
-            )
-        ''')
-        
-        # 3. ملء الفهرس
-        cursor.execute('''
-            INSERT INTO verses_fts(rowid, text)
-            SELECT id, text FROM verses
-        ''')
-        
-        # 4. إنشاء فهرس للبحث السريع
-        cursor.execute('CREATE INDEX IF NOT EXISTS idx_fts_text ON verses_fts(text)')
-        
-        conn.commit()
-        conn.close()
-        
-        print("✅ تم إصلاح FTS5 للبحث بالعربية والعثماني")
-        return True
-        
-    except Exception as e:
-        print(f"❌ خطأ في إصلاح FTS5: {e}")
-        return False
-
-def rebuild_fts_for_arabic(db: Session):
-    """
-    إعادة بناء FTS5 مع دعم كامل للغة العربية
-    """
-    print("🔧 إعادة بناء FTS5 للغة العربية...")
-    success = fix_fts_arabic_search()
-    
-    if success:
-        global FTS_AVAILABLE
-        FTS_AVAILABLE = True
-        print("🎉 FTS5 جاهز للبحث بالعربية والعثماني")
-    
-    return success
 
 # ============================================
 # 🚀 دالة جديدة: بحث شامل مسرّع باستخدام Similarity Cache
@@ -833,281 +737,6 @@ def get_expert_distinguish_question(db: Session, scope_filter):
     return get_distinguish_question(db, scope_filter, 0.85)
 
 # ============================================
-# 🔍 دوال البحث المحسنة والمُسرّعة
-# ============================================
-
-def exact_text_search(db: Session, query: str, limit: int = 20) -> List[dict]:
-    """
-    🔥 بحث نصي دقيق وسريع - نسخة محسنة
-    ⚡ السرعة: 5-50ms بدلاً من 500ms
-    ✅ يدعم الرسم العثماني والكتابة العادية
-    """
-    start_time = time.time()
-    
-    original_query = query.strip()
-    query_clean = clean_text(query)
-    
-    print(f"🔍 البحث النصي الدقيق عن: '{original_query}' (نظيف: '{query_clean}')")
-    
-    exact_matches = []
-    seen_ids = set()
-    
-    # ============================================
-    # ✅ الطريقة 1: البحث في النص الأصلي (العثماني)
-    # ============================================
-    if original_query:
-        # 🔥 SQL مباشر - سريع جداً
-        original_verses = db.query(Verse).filter(
-            Verse.text.contains(original_query)
-        ).limit(limit).all()
-        
-        for verse in original_verses:
-            if verse.id not in seen_ids:
-                exact_matches.append({
-                    **verse.to_dict(),
-                    'similarity': "1.0000",
-                    'match_type': 'exact_original'
-                })
-                seen_ids.add(verse.id)
-    
-    # ============================================
-    # ✅ الطريقة 2: البحث في النص النظيف (العادي)
-    # ============================================
-    if len(exact_matches) < limit and query_clean:
-        # 🔥 نحتاج لطريقة أذكى للبحث النظيف
-        # البحث في عينة من الآيات (1000 آية كحد أقصى)
-        all_verses = db.query(Verse).limit(1000).all()
-        
-        for verse in all_verses:
-            if len(exact_matches) >= limit:
-                break
-                
-            if verse.id in seen_ids:
-                continue
-            
-            verse_clean = clean_text(verse.text)
-            
-            if query_clean in verse_clean:
-                exact_matches.append({
-                    **verse.to_dict(),
-                    'similarity': "1.0000",
-                    'match_type': 'exact_clean'
-                })
-                seen_ids.add(verse.id)
-    
-    elapsed = time.time() - start_time
-    print(f"✅ البحث النصي الدقيق: {len(exact_matches)} نتيجة في {elapsed:.3f}ث")
-    
-    return exact_matches
-
-def fallback_search(db: Session, query: str, limit: int = 20, threshold: float = 0.7, error: str = None):
-    """
-    🔥 بحث احتياطي محسّن وسريع
-    ⚡ لا يجلب كل الآيات، بل يبحث بشكل ذكي
-    """
-    start_time = time.time()
-    query_clean = clean_text(query)
-    
-    print(f"🔍 بحث احتياطي محسّن: '{query}' (نظيف: '{query_clean}')")
-    
-    # ============================================
-    # 🔥 استراتيجية ذكية: البحث في آيات مختارة
-    # ============================================
-    
-    # 1. البحث في آيات عشوائية (500 آية كحد أقصى)
-    sample_verses = db.query(Verse).order_by(func.random()).limit(500).all()
-    
-    # 2. البحث في آيات بها كلمات مشتركة
-    query_words = query_clean.split()
-    if len(query_words) > 0:
-        # البحث عن آيات بها أي من كلمات الاستعلام
-        additional_verses = []
-        for word in query_words[:3]:  # أول 3 كلمات فقط
-            if len(word) > 2:  # تجاهل الكلمات القصيرة
-                word_verses = db.query(Verse).filter(
-                    Verse.text.contains(word)
-                ).limit(100).all()
-                additional_verses.extend(word_verses)
-        
-        sample_verses.extend(additional_verses)
-    
-    # إزالة التكرارات
-    verse_ids = set()
-    unique_verses = []
-    for verse in sample_verses:
-        if verse.id not in verse_ids:
-            verse_ids.add(verse.id)
-            unique_verses.append(verse)
-    
-    print(f"   📊 عينة البحث: {len(unique_verses)} آية")
-    
-    # حساب التشابه
-    final_results = []
-    
-    for verse in unique_verses:
-        verse_clean = clean_text(verse.text)
-        similarity = calculate_similarity(query_clean, verse_clean)
-        
-        if similarity >= threshold:
-            verse_dict = verse.to_dict()
-            verse_dict['similarity'] = f"{similarity:.4f}"
-            verse_dict['match_type'] = 'lexical'
-            final_results.append((verse_dict, similarity))
-    
-    # ترتيب النتائج
-    final_results.sort(key=lambda x: x[1], reverse=True)
-    final_results = final_results[:limit]
-    
-    elapsed = time.time() - start_time
-    
-    return {
-        "query": query,
-        "search_time": f"{elapsed:.3f}s",
-        "error": error if error else "تم استخدام البحث اللفظي الاحتياطي",
-        "total_found": len(final_results),
-        "results": [item[0] for item in final_results]
-    }
-
-def semantic_search(query: str, limit: int = 100):
-    """البحث الدلالي باستخدام FAISS - معطل في Production"""
-    print(f"⚠️ البحث الدلالي معطل للاستعلام: '{query}'")
-    print("💡 يتم استخدام البحث اللفظي بدلاً منه (أسرع وأدق)")
-    return []  # إرجاع قائمة فارغة
-
-# ============================================
-# 🆕 دالة مساعدة محسّنة للبحث النصي
-# ============================================
-
-def optimized_text_search(db: Session, query: str, limit: int = 20) -> List[dict]:
-    """
-    🔍 بحث نصي محسّن وسريع - نسخة محسنة للنتائج الكثيرة
-    ✅ يدعم جميع أشكال الكتابة
-    ⚡ أسرع 10-100 مرة من النسخة القديمة
-    🚀 يدعم الآلاف من النتائج
-    """
-    start_time = time.time()
-    
-    original_query = query.strip()
-    query_clean = clean_text(query)
-    
-    print(f"🔍 بحث نصي محسّن: '{original_query}' (الحد: {limit})")
-    
-    results = []
-    seen_ids = set()
-    
-    # ============================================
-    # 🔥 الطريقة 1: البحث المباشر في SQL (العثماني)
-    # ============================================
-    if original_query:
-        # 🔥 البحث في قاعدة البيانات مباشرة
-        # استخدم ILIKE أو LIKE للحساسية للحالة (إذا كانت قاعدة البيانات تدعم)
-        verses = db.query(Verse).filter(
-            Verse.text.contains(original_query)
-        ).limit(min(limit, 1000)).all()  # 🔥 حد مؤقت لأداء أفضل
-        
-        for verse in verses:
-            results.append({
-                **verse.to_dict(),
-                'similarity': '1.0000',
-                'match_type': 'direct_sql'
-            })
-            seen_ids.add(verse.id)
-    
-    # ============================================
-    # 🔥 الطريقة 2: البحث باستخدام FTS5 إذا متاح
-    # ============================================
-    if len(results) < limit and FTS_AVAILABLE:
-        fts_results = fast_text_search_fts(query, limit - len(results))
-        
-        for result in fts_results:
-            if result['id'] not in seen_ids:
-                results.append(result)
-                seen_ids.add(result['id'])
-    
-    # ============================================
-    # 🔥 الطريقة 3: البحث النظيف الذكي للنتائج الكثيرة
-    # ============================================
-    if len(results) < limit and query_clean:
-        print(f"   🔍 البحث النظيف (مطلوب {limit - len(results)} نتيجة إضافية)")
-        
-        # إذا كنا نبحث عن كلمة شائعة جداً (مثل "الله")
-        # نستخدم استراتيجية مختلفة للكفاءة
-        
-        query_words = query_clean.split()
-        
-        if len(query_words) == 1 and len(query_clean) > 2:
-            # كلمة واحدة - بحث ذكي
-            # استخدم SQL للبحث الجزئي إذا أمكن
-            try:
-                # البحث باستخدام LIKE (أبطأ ولكن شامل)
-                if limit > 100:  # إذا كنا نريد نتائج كثيرة
-                    print(f"   ⚡ استخدام بحث LIKE للكلمة '{query_clean}'")
-                    
-                    # استخدم SQL مباشرة للبحث السريع
-                    conn = sqlite3.connect('quran.db')
-                    cursor = conn.cursor()
-                    
-                    cursor.execute(f'''
-                        SELECT * FROM verses 
-                        WHERE text LIKE ?
-                        LIMIT ?
-                    ''', (f'%{query_clean}%', limit * 2))
-                    
-                    for row in cursor.fetchall():
-                        if len(results) >= limit:
-                            break
-                            
-                        if row[0] in seen_ids:
-                            continue
-                            
-                        results.append({
-                            'id': row[0],
-                            'surah': row[1],
-                            'surah_name': row[2],
-                            'ayah': row[3],
-                            'text': row[4],
-                            'juz': row[5],
-                            'similarity': '1.0000',
-                            'match_type': 'like_search'
-                        })
-                        seen_ids.add(row[0])
-                    
-                    conn.close()
-                else:
-                    # بحث عادي في عينة
-                    sample_verses = db.query(Verse).limit(1000).all()
-                    
-                    for verse in sample_verses:
-                        if len(results) >= limit:
-                            break
-                            
-                        if verse.id in seen_ids:
-                            continue
-                        
-                        verse_clean = clean_text(verse.text)
-                        
-                        if query_clean in verse_clean:
-                            results.append({
-                                **verse.to_dict(),
-                                'similarity': '1.0000',
-                                'match_type': 'clean_match'
-                            })
-                            seen_ids.add(verse.id)
-                            
-            except Exception as e:
-                print(f"   ⚠️ خطأ في البحث الذكي: {e}")
-                # العودة للبحث العادي
-    
-    elapsed = time.time() - start_time
-    
-    if len(results) > 100:
-        print(f"✅ البحث النصي المحسّن: {len(results)} نتيجة في {elapsed:.3f}ث (كثير!)")
-    else:
-        print(f"✅ البحث النصي المحسّن: {len(results)} نتيجة في {elapsed:.3f}ث")
-    
-    return results[:limit]  # تأكيد عدم تجاوز الحد
-
-# ============================================
 # 🆕 دوال مساعدة جديدة للاختبارات
 # ============================================
 def get_word_distractors(db: Session, target_word: str, current_surah_id: int, limit: int = 3) -> List[str]:
@@ -1249,6 +878,168 @@ def get_distinguish_question(db: Session, scope_filter, threshold: float):
     }
 
 # ============================================
+# 🔍 دوال البحث المحسنة - البحث النصي الدقيق
+# ============================================
+
+def exact_phrase_search(db: Session, query: str, limit: int = 20) -> List[dict]:
+    """
+    🔥 بحث دقيق عن العبارة الكاملة - يضمن مطابقة 100%
+    """
+    start_time = time.time()
+    
+    # الحفاظ على النص الأصلي للبحث الدقيق
+    original_query = query.strip()
+    query_clean = clean_text(query)
+    
+    print(f"🔍 البحث الدقيق عن العبارة: '{original_query}'")
+    print(f"   بعد التنظيف: '{query_clean}'")
+    
+    # جلب جميع الآيات للبحث الدقيق
+    all_verses = db.query(Verse).all()
+    
+    exact_matches = []
+    
+    for verse in all_verses:
+        verse_text_original = verse.text  # النص الأصلي
+        verse_clean = clean_text(verse.text)
+        
+        # ✅ البحث الدقيق بثلاث طرق:
+        
+        # 1. مطابقة في النص الأصلي (الأفضل)
+        if original_query in verse_text_original:
+            verse_dict = verse.to_dict()
+            verse_dict['similarity'] = "1.0000"
+            verse_dict['match_type'] = 'exact_phrase_original'
+            exact_matches.append(verse_dict)
+            continue
+            
+        # 2. مطابقة في النص النظيف
+        if query_clean in verse_clean:
+            verse_dict = verse.to_dict()
+            verse_dict['similarity'] = "1.0000" 
+            verse_dict['match_type'] = 'exact_phrase_clean'
+            exact_matches.append(verse_dict)
+            continue
+            
+        # 3. مطابقة كلمات بالترتيب (للرسم العثماني)
+        if all_words_in_sequence(query_clean.split(), verse_clean.split()):
+            verse_dict = verse.to_dict()
+            verse_dict['similarity'] = "1.0000"
+            verse_dict['match_type'] = 'exact_sequence'
+            exact_matches.append(verse_dict)
+        
+        if len(exact_matches) >= limit:
+            break
+    
+    elapsed = time.time() - start_time
+    print(f"✅ البحث الدقيق: {len(exact_matches)} نتيجة مطابقة 100% في {elapsed:.3f}ث")
+    
+    return exact_matches
+
+def all_words_in_sequence(query_words: list, verse_words: list) -> bool:
+    """
+    ✅ تحقق من أن كل كلمات الاستعلام موجودة بالترتيب في الآية
+    """
+    if not query_words:
+        return False
+    
+    query_index = 0
+    
+    for verse_word in verse_words:
+        if query_index >= len(query_words):
+            break
+            
+        clean_verse_word = clean_text(verse_word)
+        clean_query_word = clean_text(query_words[query_index])
+        
+        # ✅ مطابقة دقيقة للكلمة
+        if clean_verse_word == clean_query_word:
+            query_index += 1
+    
+    # ✅ نجحنا في إيجاد كل الكلمات بالترتيب
+    return query_index == len(query_words)
+
+def exact_text_search(db: Session, query: str, limit: int = 20) -> List[dict]:
+    """
+    🔥 بحث نصي دقيق - يبحث في النصين الأصلي والنظيف
+    """
+    start_time = time.time()
+    
+    original_query = query.strip()
+    query_clean = clean_text(query)
+    
+    print(f"🔍 البحث النصي الدقيق عن: '{original_query}' (نظيف: '{query_clean}')")
+    
+    exact_matches = []
+    all_verses = db.query(Verse).all()
+    
+    for verse in all_verses:
+        verse_text_original = verse.text
+        verse_clean = clean_text(verse.text)
+        
+        # ✅ البحث في النص الأصلي أولاً (للعثماني)
+        if original_query in verse_text_original:
+            verse_dict = verse.to_dict()
+            verse_dict['similarity'] = "1.0000"
+            verse_dict['match_type'] = 'exact_original'
+            exact_matches.append(verse_dict)
+            continue
+            
+        # ✅ البحث في النص النظيف (للعادي)
+        if query_clean and query_clean in verse_clean:
+            verse_dict = verse.to_dict()
+            verse_dict['similarity'] = "1.0000"
+            verse_dict['match_type'] = 'exact_clean' 
+            exact_matches.append(verse_dict)
+            continue
+            
+        if len(exact_matches) >= limit:
+            break
+    
+    elapsed = time.time() - start_time
+    print(f"✅ البحث النصي الدقيق: {len(exact_matches)} نتيجة في {elapsed:.3f}ث")
+    
+    return exact_matches
+
+def semantic_search(query: str, limit: int = 100):
+    """البحث الدلالي باستخدام FAISS - معطل في Production"""
+    print(f"⚠️ البحث الدلالي معطل للاستعلام: '{query}'")
+    print("💡 يتم استخدام البحث اللفظي بدلاً منه (أسرع وأدق)")
+    return []  # إرجاع قائمة فارغة
+
+def fallback_search(db: Session, query: str, limit: int = 20, threshold: float = 0.7, error: str = None):
+    """
+    🔥 بحث احتياطي محدث - برفع threshold إلى 0.7
+    """
+    start_time = time.time()
+    all_verses = db.query(Verse).all()
+    query_clean = clean_text(query)
+    
+    final_results = []
+    
+    for verse in all_verses:
+        verse_clean = clean_text(verse.text)
+        similarity = calculate_similarity(query_clean, verse_clean)
+        
+        if similarity >= threshold:  # ✅ رفع من 0.3 إلى 0.7
+            verse_dict = verse.to_dict()
+            verse_dict['similarity'] = f"{similarity:.4f}"
+            verse_dict['match_type'] = 'lexical'
+            final_results.append((verse_dict, similarity))
+            
+    final_results.sort(key=lambda x: x[1], reverse=True)
+    
+    elapsed = time.time() - start_time
+    
+    return {
+        "query": query,
+        "search_time": f"{elapsed:.3f}s",
+        "error": error if error else "تم استخدام البحث اللفظي الاحتياطي",
+        "total_found": len(final_results),
+        "results": [item[0] for item in final_results[:limit]]
+    }
+
+# ============================================
 # إعداد FastAPI
 # ============================================
 @asynccontextmanager
@@ -1318,93 +1109,36 @@ def root():
 def fixed_search(
     q: str = Query(..., min_length=1),
     limit: int = Query(20, gt=0, le=100),
-    highlight: bool = Query(True, description="تظليل الكلمات في النتائج"),
     db: Session = Depends(get_db)
 ):
     """
-    🔍 بحث محسّن يدعم الرسم العثماني والكتابة العادية
-    ✅ يبحث في النص الأصلي (العثماني)
-    ✅ يبحث في النص النظيف (العادي)
-    ⚡ السرعة: 5-50ms
+    🔍 بحث محسّن يدعم الرسم العثماني بالكامل
+    ✅ يبحث في النص الأصلي مباشرة (بدون تنظيف)
+    ✅ يدعم جميع أشكال الكتابة العثمانية
     """
     print(f"\n🎯 بحث محسّن للعثماني: '{q}'")
     start_time = time.time()
     
+    # البحث في النص الأصلي مباشرة (يدعم العثماني)
+    verses = db.query(Verse).filter(
+        Verse.text.contains(q)
+    ).limit(limit).all()
+    
     results = []
-    seen_ids = set()
-    
-    # ============================================
-    # 🔥 الطريقة 1: البحث في النص الأصلي (العثماني)
-    # ============================================
-    if q:
-        # البحث المباشر في SQL
-        verses = db.query(Verse).filter(
-            Verse.text.contains(q)
-        ).limit(limit).all()
-        
-        for verse in verses:
-            verse_dict = verse.to_dict()
-            verse_dict['similarity'] = '1.0000'
-            verse_dict['match_type'] = 'exact_original'
-            
-            if highlight:
-                verse_dict['highlighted_text'] = highlight_words_in_text(verse.text, q)
-            
-            results.append(verse_dict)
-            seen_ids.add(verse.id)
-    
-    # ============================================
-    # 🔥 الطريقة 2: البحث في النص النظيف (إذا احتجنا المزيد)
-    # ============================================
-    if len(results) < limit:
-        q_clean = clean_text(q)
-        
-        if q_clean and q_clean != clean_text(q):  # إذا كان التنظيف غير التام
-            # البحث في النص النظيف
-            all_verses = db.query(Verse).limit(1000).all()  # 🔥 عينة ذكية
-            
-            for verse in all_verses:
-                if len(results) >= limit:
-                    break
-                    
-                if verse.id in seen_ids:
-                    continue
-                
-                verse_clean = clean_text(verse.text)
-                
-                if q_clean in verse_clean:
-                    verse_dict = verse.to_dict()
-                    verse_dict['similarity'] = '1.0000'
-                    verse_dict['match_type'] = 'exact_clean'
-                    
-                    if highlight:
-                        verse_dict['highlighted_text'] = highlight_words_in_text(verse.text, q)
-                    
-                    results.append(verse_dict)
-                    seen_ids.add(verse.id)
-    
-    # ============================================
-    # 🔥 الطريقة 3: استخدام FTS5 كبديل (إذا لم نجد نتائج)
-    # ============================================
-    if len(results) == 0 and FTS_AVAILABLE:
-        print("   ⚡ محاولة البحث عبر FTS5...")
-        fts_results = fast_text_search_fts(q, limit)
-        
-        for result in fts_results:
-            if result['id'] not in seen_ids:
-                if highlight:
-                    result['highlighted_text'] = highlight_words_in_text(result['text'], q)
-                results.append(result)
-                seen_ids.add(result['id'])
+    for verse in verses:
+        results.append({
+            **verse.to_dict(),
+            'similarity': '1.0000',
+            'match_type': 'exact_original'
+        })
     
     elapsed = time.time() - start_time
     
     return {
         "query": q,
-        "query_clean": clean_text(q) if len(results) < limit else None,
         "search_time": f"{elapsed:.3f}s",
         "total_found": len(results),
-        "match_type": "exact_original" if len(results) > 0 else "no_match",
+        "match_type": "exact_original",
         "method": "contains_search",
         "results": results
     }
@@ -1413,20 +1147,17 @@ def fixed_search(
 def search_both_methods(
     q: str = Query(..., min_length=1),
     limit: int = Query(20, gt=0, le=100),
-    highlight: bool = Query(True, description="تظليل الكلمات في النتائج"),
     db: Session = Depends(get_db)
 ):
     """
     🔥 بحث شامل يدعم الكتابة العادية والعثمانية معاً
     ✅ يبحث في النص الأصلي (العثماني) والنص النظيف (العادي)
-    ⚡ السرعة: 20-100ms
     """
     print(f"\n🎯 بحث شامل: '{q}'")
     start_time = time.time()
     
     # البحث بطريقتين معاً
     results = []
-    seen_ids = set()
     
     # الطريقة 1: البحث في النص الأصلي (العثماني)
     verses_original = db.query(Verse).filter(
@@ -1434,160 +1165,42 @@ def search_both_methods(
     ).limit(limit).all()
     
     for verse in verses_original:
-        verse_dict = verse.to_dict()
-        verse_dict['similarity'] = '1.0000'
-        verse_dict['match_type'] = 'exact_original'
-        verse_dict['method'] = 'contains_original'
-        
-        if highlight:
-            verse_dict['highlighted_text'] = highlight_words_in_text(verse.text, q)
-        
-        results.append(verse_dict)
-        seen_ids.add(verse.id)
+        results.append({
+            **verse.to_dict(),
+            'similarity': '1.0000',
+            'match_type': 'exact_original',
+            'method': 'contains_original'
+        })
     
-    # الطريقة 2: البحث في النص النظيف (العادي) - فقط إذا احتجنا المزيد
-    if len(results) < limit:
-        q_clean = clean_text(q)
+    # الطريقة 2: البحث في النص النظيف (العادي)
+    q_clean = clean_text(q)
+    all_verses = db.query(Verse).all()
+    
+    for verse in all_verses:
+        verse_clean = clean_text(verse.text)
+        if q_clean in verse_clean:
+            # تجنب التكرار
+            existing = any(r['id'] == verse.id for r in results)
+            if not existing:
+                results.append({
+                    **verse.to_dict(),
+                    'similarity': '1.0000', 
+                    'match_type': 'exact_clean',
+                    'method': 'contains_clean'
+                })
         
-        # 🔥 البحث الذكي: نبحث في عينة من الآيات فقط
-        sample_verses = db.query(Verse).limit(500).all()
-        
-        for verse in sample_verses:
-            if len(results) >= limit:
-                break
-                
-            if verse.id in seen_ids:
-                continue
-            
-            verse_clean = clean_text(verse.text)
-            if q_clean in verse_clean:
-                verse_dict = verse.to_dict()
-                verse_dict['similarity'] = '1.0000' 
-                verse_dict['match_type'] = 'exact_clean'
-                verse_dict['method'] = 'contains_clean'
-                
-                if highlight:
-                    verse_dict['highlighted_text'] = highlight_words_in_text(verse.text, q)
-                
-                results.append(verse_dict)
-                seen_ids.add(verse.id)
+        if len(results) >= limit:
+            break
     
     elapsed = time.time() - start_time
     
     return {
         "query": q,
-        "query_clean": clean_text(q),
+        "query_clean": q_clean,
         "search_time": f"{elapsed:.3f}s",
         "total_found": len(results),
         "match_type": "both_methods",
         "results": results[:limit]
-    }
-
-@app.get("/search/all")
-def search_all_verses(
-    q: str = Query(..., min_length=1),
-    limit: int = Query(10000, gt=0, le=20000),
-    highlight: bool = Query(False, description="تظليل النتائج (يبطئ مع النتائج الكثيرة)"),
-    db: Session = Depends(get_db)
-):
-    """
-    🔍 بحث شامل لجميع النتائج بدون حدود صارمة
-    ⚠️ قد يكون بطيئاً مع النتائج الكثيرة
-    """
-    print(f"\n{'='*60}")
-    print(f"🔍 بحث شامل: '{q}' (الحد: {limit})")
-    print(f"{'='*60}")
-    
-    start_time = time.time()
-    
-    try:
-        # استخدام البحث المحسن مع limit كبير
-        exact_results = optimized_text_search(db, q, limit)
-
-        # إضافة التظليل إذا طُلب (قد يبطئ)
-        if highlight and exact_results:
-            print(f"   🎨 تطبيق التظليل على {len(exact_results)} نتيجة...")
-            for result in exact_results:
-                result['highlighted_text'] = highlight_words_in_text(result['text'], q)
-    
-        elapsed = time.time() - start_time
-        
-        print(f"✅ البحث الشامل: {len(exact_results)} نتيجة في {elapsed:.3f}ث")
-        
-        return {
-            "query": q,
-            "search_time": f"{elapsed:.3f}s",
-            "total_found": len(exact_results),
-            "limit_used": limit,
-            "match_type": "exact_all",
-            "results": exact_results
-        }
-
-    except Exception as e:
-        print(f"❌ خطأ في البحث الشامل: {e}")
-        return {
-            "query": q,
-            "error": str(e),
-            "total_found": 0,
-            "results": []
-        }
-
-@app.get("/search/count")
-def count_word_occurrences(
-    q: str = Query(..., min_length=1),
-    db: Session = Depends(get_db)
-):
-    """
-    📊 حساب عدد مرات تكرار الكلمة في القرآن
-    ⚡ سريع جداً (يستخدم cache)
-    """
-    print(f"\n📊 حساب تكرارات: '{q}'")
-    start_time = time.time()
-    
-    q_clean = clean_text(q)
-    
-    if len(q_clean) < 2:
-        raise HTTPException(status_code=400, detail="الكلمة قصيرة جداً")
-    
-    # استخدام cache إذا متاح
-    if WORD_STATS_CACHE and q_clean in WORD_STATS_CACHE:
-        stats = WORD_STATS_CACHE[q_clean]
-        elapsed = time.time() - start_time
-        
-        return {
-            "word": q,
-            "word_normalized": q_clean,
-            "total_count": stats['total_count'],
-            "verses_count": stats['verses_count'],
-            "search_time": f"{elapsed:.3f}s",
-            "source": "cache",
-            "note": "يستخدم /search/all للحصول على النتائج الكاملة"
-        }
-    
-    # حساب يدوي
-    total_count = 0
-    verses_count = 0
-    
-    all_verses = db.query(Verse).all()
-    
-    for verse in all_verses:
-        verse_clean = clean_text(verse.text)
-        count = verse_clean.count(q_clean)
-        
-        if count > 0:
-            total_count += count
-            verses_count += 1
-    
-    elapsed = time.time() - start_time
-    
-    return {
-        "word": q,
-        "word_normalized": q_clean,
-        "total_count": total_count,
-        "verses_count": verses_count,
-        "search_time": f"{elapsed:.3f}s",
-        "source": "direct_count",
-        "note": f"الكلمة '{q}' تظهر {total_count} مرة في {verses_count} آية"
     }
 
 # ============================================
@@ -1714,24 +1327,9 @@ def admin_build_fts_index(db: Session = Depends(get_db)):
         "message": "تم بناء فهرس FTS5 بنجاح" if success else "فشل بناء فهرس FTS5"
     }
 
-# ✅ أضف هذا الكود هنا مباشرة:
-@app.get("/admin/fix-fts")
-def admin_fix_fts_index(db: Session = Depends(get_db)):
-    """
-    🔧 إصلاح فهرس FTS5 للغة العربية والعثماني
-    ⚠️ يستغرق بضع ثوانٍ
-    """
-    print("\n🔧 إصلاح FTS5 للغة العربية والعثماني...")
-    success = rebuild_fts_for_arabic(db)
-    
-    return {
-        "success": success,
-        "message": "تم إصلاح FTS5 بنجاح" if success else "فشل إصلاح FTS5"
-    }
-
 @app.get("/admin/build-cache")
 def admin_build_cache(
-    cache_type: str = Query("all", pattern="^(all|similarity|word_stats)$"),
+    cache_type: str = Query("all", regex="^(all|similarity|word_stats)$"),
     min_similarity: float = Query(0.1, ge=0.05, le=1.0),  # ✅ إضافة معامل جديد
     db: Session = Depends(get_db)
 ):
@@ -1778,8 +1376,7 @@ def get_performance_statistics():
             "Word Statistics Cache (1-5ms)",
             "AutoComplete Suggestions",
             "LRU Cache (1000 entries)",
-            "🚀 Fast All Similarities (1-10s)",
-            "🔍 Optimized Text Search (5-50ms)"
+            "🚀 Fast All Similarities (1-10s)"  # ✅ إضافة التحسين الجديد
         ]
     }
 
@@ -1872,7 +1469,7 @@ def get_word_statistics(
 @app.get("/search")
 def search_verses(
     q: str = Query(..., min_length=1),
-    limit: int = Query(20, gt=0, le=10000),
+    limit: int = Query(20, gt=0, le=100),
     threshold: float = Query(0.7, ge=0.05, le=1.0),  # ✅ رفع من 0.1 إلى 0.7
     highlight: bool = Query(True, description="تظليل الكلمات في النتائج"),
     db: Session = Depends(get_db)
@@ -1880,18 +1477,17 @@ def search_verses(
     """
     🔍 البحث النصي المحسّن - مع الأولوية للبحث الدقيق
     يدعم الآن الرسم العثماني والكتابة العادية + تظليل النتائج
-    ⚡ السرعة: 10-100ms (محسّن 10x)
     """
     print(f"\n{'='*60}")
     print(f"🔍 بدء البحث: '{q}'")
-    print(f"   الحد: {limit}، نسبة التشابه: {threshold}")
+    print(f"   الحد: {limit}، نسبة التشابه: {threshold}")  # ✅ threshold الجديد
     print(f"{'='*60}")
     
     start_time = time.time()
     
     try:
-        # 🌟 الخطوة 1: البحث النصي المحسّن والسريع
-        exact_results = optimized_text_search(db, q, limit)
+        # 🌟 الخطوة 1: البحث النصي الدقيق (لضمان تطابق الجمل)
+        exact_results = exact_text_search(db, q, limit)
 
         # إذا كانت نتائج البحث الدقيق كافية، نكتفي بها
         if exact_results:
@@ -1911,16 +1507,78 @@ def search_verses(
                 "results": exact_results
             }
         
-        # 🌟 الخطوة 2: البحث الاحتياطي المحسّن
-        print("⚠️ لم تكفِ نتائج البحث الدقيق — استخدام البحث الاحتياطي المحسّن")
-        fallback_results = fallback_search(db, q, limit, threshold)
+        # 🌟 الخطوة 2: البحث الدلالي/اللفظي (إذا لم يكن هناك تطابق دقيق)
+        if not EMBEDDING_AVAILABLE or FAISS_INDEX is None:
+            print("⚠️ FAISS غير متاح — سيتم استخدام البحث اللفظي الاحتياطي")
+            fallback_results = fallback_search(db, q, limit, threshold)
+            
+            # 🔥 إضافة التظليل إذا طُلب
+            if highlight and 'results' in fallback_results:
+                for result in fallback_results['results']:
+                    result['highlighted_text'] = highlight_words_in_text(result['text'], q)
+            
+            return fallback_results
+
+        # البحث الدلالي
+        candidate_verse_ids = semantic_search(q, limit=100)
+        candidate_verses = db.query(Verse).filter(Verse.id.in_(candidate_verse_ids)).all() if candidate_verse_ids else []
+        
+        # التصفية باستخدام التشابه اللفظي
+        query_clean = clean_text(q)
+        final_results = []
+        
+        for verse in candidate_verses:
+            verse_clean = clean_text(verse.text)
+            similarity = calculate_similarity(query_clean, verse_clean)
+            
+            if similarity >= threshold:  # ✅ threshold الجديد
+                verse_dict = verse.to_dict()
+                verse_dict['similarity'] = f"{similarity:.4f}"
+                verse_dict['match_type'] = 'semantic'
+                final_results.append((verse_dict, similarity))
+                
+        # إذا لم توجد نتائج دلالية كافية، نستخدم البحث اللفظي الكامل
+        if len(final_results) < limit:
+            all_verses = db.query(Verse).all()
+            for verse in all_verses:
+                if verse.id in candidate_verse_ids:  # تجنب التكرار
+                    continue
+                    
+                verse_clean = clean_text(verse.text)
+                similarity = calculate_similarity(query_clean, verse_clean)
+                
+                if similarity >= threshold:  # ✅ threshold الجديد
+                    verse_dict = verse.to_dict()
+                    verse_dict['similarity'] = f"{similarity:.4f}"
+                    verse_dict['match_type'] = 'lexical'
+                    final_results.append((verse_dict, similarity))
+                    
+                    if len(final_results) >= limit * 2:  # نتائج إضافية للفرز
+                        break
+        
+        # الفرز واختيار الحد المطلوب
+        final_results.sort(key=lambda x: x[1], reverse=True)
+        final_results = final_results[:limit]
         
         # 🔥 إضافة التظليل إذا طُلب
-        if highlight and 'results' in fallback_results:
-            for result in fallback_results['results']:
-                result['highlighted_text'] = highlight_words_in_text(result['text'], q)
+        results_with_highlight = []
+        for item in final_results:
+            verse_dict = item[0]
+            if highlight:
+                verse_dict['highlighted_text'] = highlight_words_in_text(verse_dict['text'], q)
+            results_with_highlight.append(verse_dict)
         
-        return fallback_results
+        elapsed = time.time() - start_time
+        
+        print(f"✅ البحث الدلالي/اللفظي: {len(results_with_highlight)} نتيجة في {elapsed:.3f}ث")
+        
+        return {
+            "query": q,
+            "search_time": f"{elapsed:.3f}s",
+            "total_found": len(results_with_highlight),
+            "match_type": "semantic_lexical",
+            "results": results_with_highlight
+        }
 
     except Exception as e:
         print(f"❌ خطأ في البحث: {e}")
@@ -1940,7 +1598,7 @@ def get_similar_verses(
     limit: int = Query(10, gt=0, le=50),
     threshold: float = Query(0.4, ge=0.3, le=1.0),
     exclude_basmala: bool = Query(True),
-    method: str = Query("smart", pattern="^(smart|semantic|lexical)$"),
+    method: str = Query("smart", regex="^(smart|semantic|lexical)$"),
     db: Session = Depends(get_db)
 ):
     """
