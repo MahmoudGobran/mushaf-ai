@@ -2,7 +2,7 @@ import { Download } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import axios from 'axios'
 
-const API_URL = 'http://localhost:8000'
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 export default function DownloadResults({ data, filename = 'results', type = 'search' }) {
   

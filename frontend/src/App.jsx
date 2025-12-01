@@ -12,7 +12,7 @@ import { normalizeSearchQuery } from './utils/textNormalizer'
 import { highlightWordsInText } from './utils/textNormalizer'
 import './styles.css'
 
-const API_URL = import.meta.env.VITE_API_URL || "https://mushaf-ai-backend.onrender.com"
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 export const ReciterContext = createContext()
 
 function App() {

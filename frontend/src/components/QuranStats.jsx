@@ -4,7 +4,7 @@ import { BarChart, BookOpen, Zap, X, User } from 'lucide-react'
 import VoiceSearch from './VoiceSearch'
 import DownloadResults from './DownloadResults'  // ✅ إضافة الاستيراد
 
-const API_URL = 'http://localhost:8000'
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 const PRESET_STATS = [
     { title: 'أكثر الكلمات: الله', word: 'الله', icon: 'zap' },

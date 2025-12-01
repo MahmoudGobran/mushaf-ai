@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import axios from 'axios'
 
-const API_URL = 'http://localhost:8000'
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 // دالة مساعدة لعرض نص الآية مع تلوين
 const renderHighlightedText = (highlightedText, verseIndex, comparison) => {

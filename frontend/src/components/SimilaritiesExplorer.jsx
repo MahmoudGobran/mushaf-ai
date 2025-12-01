@@ -4,7 +4,7 @@ import QuranAudioPlayer from './QuranAudioPlayer'
 import DownloadResults from './DownloadResults'
 import SurahSelector, { SURAHS } from './SurahSelector'
 
-const API_URL = 'http://localhost:8000'
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 const VerseComparison = ({ verse1, verse2 }) => {
   const [highlightedData, setHighlightedData] = useState(null)
