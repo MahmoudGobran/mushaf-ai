@@ -7,7 +7,8 @@ const MEASUREMENT_ID = 'G-VYHKHT4HTS'; // 🔴 غيّر هذا!
 let isInitialized = false;
 
 export const initGA = () => {
-  if (!isInitialized && MEASUREMENT_ID !== 'G-VYHKHT4HTS') {
+  // ✅ FIX: Removed the unnecessary check against the placeholder ID.
+  if (!isInitialized) { 
     ReactGA.initialize(MEASUREMENT_ID);
     isInitialized = true;
     console.log('✅ Google Analytics initialized');
