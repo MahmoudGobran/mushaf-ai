@@ -1893,11 +1893,11 @@ def get_all_similarities(
     """
     
     # التحقق من صحة المعاملات
-    if compare_surah is not None and surah is None:
-        raise HTTPException(status_code=422, detail="compare_surah requires surah")
+    #if compare_surah is not None and surah is None:
+    #    raise HTTPException(status_code=422, detail="compare_surah requires surah")
     
-    if compare_juz is not None and juz is None:
-        raise HTTPException(status_code=422, detail="compare_juz requires juz")
+    #if compare_juz is not None and juz is None:
+    #    raise HTTPException(status_code=422, detail="compare_juz requires juz")
     
     print(f"\n{'='*60}")
     print(f"🔍 بدء البحث الشامل")
