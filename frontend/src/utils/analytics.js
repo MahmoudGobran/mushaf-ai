@@ -1,96 +1,94 @@
 // frontend/src/utils/analytics.js
-import ReactGA from 'react-ga4';
 
-// ✅ ضع Measurement ID الخاص بك هنا
-const MEASUREMENT_ID = 'G-VYHKHT4HTS';
+// ✅ تحقق مما إذا كان gtag محملاً
+const isGtagLoaded = () => {
+  return typeof window.gtag !== 'undefined' && typeof window.dataLayer !== 'undefined';
+};
 
-let isInitialized = false;
-let pendingPageViews = [];
-let pendingEvents = [];
-
-const initializeGA = () => {
-  if (isInitialized || !MEASUREMENT_ID) return false;
-  
-  try {
-    console.log('🚀 Initializing Google Analytics with ID:', MEASUREMENT_ID);
-    
-    ReactGA.initialize(MEASUREMENT_ID, {
-      // ✅ إعدادات مهمة لتطبيقات SPA
-      gaOptions: {
-        siteSpeedSampleRate: 100
-      }
-    });
-    
-    isInitialized = true;
-    console.log('✅ Google Analytics initialized successfully');
-    
-    // ✅ معالجة الأحداث المعلقة
-    pendingPageViews.forEach(view => trackPageView(view));
-    pendingEvents.forEach(event => trackEvent(event.category, event.action, event.label, event.value));
-    
-    pendingPageViews = [];
-    pendingEvents = [];
-    
+// ✅ تهيئة GA (لا نحتاج فعلًا لشيء لأنه محمل في index.html)
+export const initGA = () => {
+  if (isGtagLoaded()) {
+    console.log('✅ Google Analytics is ready via gtag.js');
     return true;
-  } catch (error) {
-    console.error('❌ Failed to initialize Google Analytics:', error);
+  } else {
+    console.warn('⚠️ Google Analytics (gtag.js) not loaded. Check index.html');
     return false;
   }
 };
 
-export const initGA = () => {
-  // ✅ تأخير التهيئة قليلاً لضمان تحميل الصفحة
-  setTimeout(() => {
-    initializeGA();
-  }, 500);
-};
-
-// تتبع الصفحات
+// ✅ تتبع عرض الصفحة
 export const trackPageView = (path) => {
-  if (!isInitialized) {
-    console.log('📋 Queueing page view (GA not initialized):', path);
-    pendingPageViews.push(path);
-    return;
-  }
-  
-  try {
-    ReactGA.send({ 
-      hitType: 'pageview', 
-      page: path,
-      title: document.title
+  if (isGtagLoaded()) {
+    window.gtag('config', 'G-VYHKHT4HTS', {
+      page_path: path,
+      page_title: document.title
     });
     console.log(`📊 Page view tracked: ${path}`);
-  } catch (error) {
-    console.error('❌ Failed to track page view:', error);
+  } else {
+    console.log(`📋 Page view queued (GA not ready): ${path}`);
+    // تخزين مؤقت إذا احتجنا
+    if (!window.pendingGAActions) window.pendingGAActions = [];
+    window.pendingGAActions.push({ type: 'pageview', path });
   }
 };
 
-// تتبع الأحداث المخصصة
+// ✅ تتبع الأحداث
 export const trackEvent = (category, action, label = '', value = 0) => {
-  if (!isInitialized) {
-    console.log('📋 Queueing event (GA not initialized):', { category, action });
-    pendingEvents.push({ category, action, label, value });
-    return;
-  }
-  
-  try {
-    ReactGA.event({
-      category,
-      action,
-      label,
-      value
+  if (isGtagLoaded()) {
+    window.gtag('event', action, {
+      event_category: category,
+      event_label: label,
+      value: value
     });
-    console.log(`📊 Event tracked: ${category} - ${action}`);
-  } catch (error) {
-    console.error('❌ Failed to track event:', error);
+    console.log(`📊 Event tracked: ${category} - ${action} - ${label}`);
+  } else {
+    console.log(`📋 Event queued (GA not ready): ${category} - ${action}`);
+    if (!window.pendingGAActions) window.pendingGAActions = [];
+    window.pendingGAActions.push({ 
+      type: 'event', 
+      category, 
+      action, 
+      label, 
+      value 
+    });
   }
 };
 
-// أحداث مخصصة للتطبيق
+// ✅ معالجة الأحداث المعلقة عند تحميل GA
+const processPendingActions = () => {
+  if (window.pendingGAActions && window.pendingGAActions.length > 0) {
+    console.log(`🔄 Processing ${window.pendingGAActions.length} pending GA actions`);
+    window.pendingGAActions.forEach(action => {
+      if (action.type === 'pageview') {
+        trackPageView(action.path);
+      } else if (action.type === 'event') {
+        trackEvent(action.category, action.action, action.label, action.value);
+      }
+    });
+    window.pendingGAActions = [];
+  }
+};
+
+// ✅ استمع لتحميل gtag
+if (typeof window !== 'undefined') {
+  // تحقق بشكل دوري من تحميل gtag
+  const checkGtagInterval = setInterval(() => {
+    if (isGtagLoaded()) {
+      clearInterval(checkGtagInterval);
+      processPendingActions();
+    }
+  }, 1000);
+  
+  // توقف بعد 10 ثواني
+  setTimeout(() => clearInterval(checkGtagInterval), 10000);
+}
+
+// ✅ أحداث مخصصة للتطبيق
 export const Analytics = {
   // البحث
   search: (query, resultsCount) => {
-    trackEvent('Search', 'search_query', query.substring(0, 100), resultsCount);
+    const safeQuery = query ? query.substring(0, 100) : '';
+    trackEvent('Search', 'search_query', safeQuery, resultsCount);
   },
   
   // المتشابهات
@@ -117,6 +115,16 @@ export const Analytics = {
     trackEvent('Feature', 'feature_used', featureName);
   },
   
-  // وظيفة مساعدة للتحقق من الحالة
-  isInitialized: () => isInitialized
+  // اختبار GA
+  test: () => {
+    console.log('🧪 Testing GA integration...');
+    console.log('gtag loaded?', isGtagLoaded());
+    console.log('dataLayer:', window.dataLayer);
+    
+    if (isGtagLoaded()) {
+      trackEvent('Test', 'analytics_test', 'Testing GA4 integration', 1);
+      return true;
+    }
+    return false;
+  }
 };

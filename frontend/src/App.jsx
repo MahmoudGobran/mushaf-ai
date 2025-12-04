@@ -47,21 +47,30 @@ function App() {
     { id: 'sudais', name: 'عبد الرحمن السديس' }
   ]
 
-  // ✅ تهيئة GA4 عند تحميل التطبيق - بتسلسل صحيح
+  // ✅ تهيئة وتتبع GA4 عند تحميل التطبيق
   useEffect(() => {
-    console.log('🚀 App mounted - Initializing GA...')
+    console.log('🚀 App component mounted');
     
-    // ✅ تهيئة GA أولاً
-    initGA()
+    // ✅ تهيئة GA
+    const gaInitialized = initGA();
     
-    // ✅ تتبع الصفحة الرئيسية مع تأخير بسيط
-    const timer = setTimeout(() => {
-      trackPageView(window.location.pathname)
-      console.log('✅ GA initialization and page tracking complete')
-    }, 1000)
+    // ✅ تتبع الصفحة الرئيسية مع تأخير لضمان تحميل gtag
+    const pageViewTimer = setTimeout(() => {
+      trackPageView(window.location.pathname);
+      console.log('📊 Page view tracking initiated');
+    }, 1500);
     
-    return () => clearTimeout(timer)
-  }, [])
+    // ✅ اختبار GA بعد تحميل المكون
+    const testTimer = setTimeout(() => {
+      Analytics.test();
+    }, 3000);
+    
+    // ✅ Cleanup
+    return () => {
+      clearTimeout(pageViewTimer);
+      clearTimeout(testTimer);
+    };
+  }, []);
 
   useEffect(() => {
     loadRandomVerses()
