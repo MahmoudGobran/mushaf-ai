@@ -5,30 +5,39 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
-    <!-- ✅ Google Analytics 4 - الإضافة الوحيدة -->
+    <!-- ✅ Google Analytics 4 Tag -->
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-VYHKHT4HTS"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
+
       gtag('config', 'G-VYHKHT4HTS');
       
-      // ✅ وظائف مساعدة للتحليلات
+      // ✅ وظائف مساعدة لتتبع الأحداث
       window.trackGAEvent = function(category, action, label, value) {
-        if (window.gtag) {
-          gtag('event', action, {
-            event_category: category,
-            event_label: label,
-            value: value
-          });
-        }
-      };
+        gtag('event', action, {
+          event_category: category,
+          event_label: label,
+          value: value
+        });
+        console.log('📊 GA Event:', category, action, label);
+      }
       
-      console.log('✅ Google Analytics 4 جاهز');
+      // ✅ تتبع الصفحات
+      window.trackGAPageView = function(path, title) {
+        gtag('config', 'G-VYHKHT4HTS', {
+          page_path: path,
+          page_title: title || document.title
+        });
+        console.log('📊 GA Page View:', path);
+      }
+      
+      console.log('✅ Google Analytics 4 loaded successfully');
     </script>
     
-    <title>المصحف الذكي للمتشابهات</title>
+    <title>المصحف الذكي للمتشابهات القرآنية</title>
   </head>
   <body>
     <div id="root"></div>

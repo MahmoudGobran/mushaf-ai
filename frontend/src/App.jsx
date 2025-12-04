@@ -17,7 +17,6 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 export const ReciterContext = createContext()
 
 function App() {
-  // ============ جميع الحالات الأصلية محفوظة كما هي ============
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
@@ -30,10 +29,11 @@ function App() {
   const [selectedReciter, setSelectedReciter] = useState('afasy')
   const [activeView, setActiveView] = useState(null)
 
-  // 1. حالة searchHistory (محفوظة كما هي)
+  // 1. إضافة حالة searchHistory في قسم الحالات (States)
   const [searchHistory, setSearchHistory] = useState(() => {
     try {
       const savedHistory = localStorage.getItem('searchHistory')
+      // الاحتفاظ بآخر 10 كلمات
       return savedHistory ? JSON.parse(savedHistory).slice(0, 10) : []
     } catch {
       return []
@@ -47,55 +47,58 @@ function App() {
     { id: 'sudais', name: 'عبد الرحمن السديس' }
   ]
 
-  // ✅ إضافة: تهيئة Google Analytics (إضافة فقط، لا تغيير)
+  // ✅ تهيئة وتتبع GA4 عند تحميل التطبيق
   useEffect(() => {
-    console.log('🚀 بدء تحميل التطبيق')
+    console.log('🚀 App component mounted');
     
-    // تهيئة GA
-    const gaInitialized = initGA()
+    // ✅ تهيئة GA
+    const gaInitialized = initGA();
     
-    // تتبع الصفحة الرئيسية
-    const timer = setTimeout(() => {
-      trackPageView(window.location.pathname)
-      
-      // ✅ إضافة: تتبع تحميل التطبيق
-      Analytics.trackUserInteraction('app', 'app_loaded', 'load')
-    }, 1500)
+    // ✅ تتبع الصفحة الرئيسية مع تأخير لضمان تحميل gtag
+    const pageViewTimer = setTimeout(() => {
+      trackPageView(window.location.pathname);
+      console.log('📊 Page view tracking initiated');
+    }, 1500);
     
-    return () => clearTimeout(timer)
-  }, [])
+    // ✅ اختبار GA بعد تحميل المكون
+    const testTimer = setTimeout(() => {
+      Analytics.test();
+    }, 3000);
+    
+    // ✅ Cleanup
+    return () => {
+      clearTimeout(pageViewTimer);
+      clearTimeout(testTimer);
+    };
+  }, []);
 
-  // ✅ useEffect الأصلي محفوظ كما هو
   useEffect(() => {
     loadRandomVerses()
     loadStats()
   }, [])
 
-  // ✅ دالة loadStats الأصلية محفوظة مع إضافة تتبع طفيف
   const loadStats = async () => {
     try {
       const res = await axios.get(`${API_URL}/stats`)
       setStats(res.data)
       
-      // ✅ إضافة: تتبع تحميل الإحصائيات
+      // 📊 تتبع عرض الإحصائيات العامة
       Analytics.viewWordStats('general_stats')
-      Analytics.trackUserInteraction('stats', 'global_stats_loaded', 'load')
     } catch (err) {
       console.error('Stats error:', err)
-      // ✅ إضافة: تتبع الخطأ
-      Analytics.trackEvent('Error', 'load_stats_error', err.message)
     }
   }
 
   // ----------------------------------------------------
-  // 2. دالة updateSearchHistory (محفوظة كما هي بالضبط)
+  // 2. إضافة دالة تحديث سجل البحث (Add this function)
   const updateSearchHistory = (query) => {
     const trimmedQuery = query.trim()
     if (!trimmedQuery) return
 
     setSearchHistory(prevHistory => {
+      // إزالة الكلمة إذا كانت موجودة وإضافتها كأحدث كلمة
       const newHistory = prevHistory.filter(item => item !== trimmedQuery)
-      const updatedHistory = [trimmedQuery, ...newHistory].slice(0, 10)
+      const updatedHistory = [trimmedQuery, ...newHistory].slice(0, 10) // الاحتفاظ بأحدث 10 كلمات
       
       try {
         localStorage.setItem('searchHistory', JSON.stringify(updatedHistory))
@@ -108,45 +111,39 @@ function App() {
   // ----------------------------------------------------
 
   // ----------------------------------------------------
-  // 3. دالة startVoiceSearch (محفوظة كما هي مع إضافة تتبع)
+  // 3. إضافة دالة تشغيل البحث الصوتي (Add this function)
   const startVoiceSearch = (query) => {
+    // تنظيف query الصوتي (إزالة النقاط etc)
     const cleanedQuery = query.replace(/[.,]/g, '').trim();
     setSearchQuery(cleanedQuery) 
     
-    // ✅ إضافة: تتبع البحث الصوتي
+    // 📊 تتبع استخدام البحث الصوتي
     Analytics.useFeature('voice_search')
-    Analytics.trackUserInteraction('search', 'voice_search_initiated', 'start')
-    Analytics.trackDetailedSearch(cleanedQuery, 0, 'voice')
     
-    handleSearch(cleanedQuery)
+    handleSearch(cleanedQuery) // تشغل handleSearch التي بدورها تحفظ السجل
   }
   // ----------------------------------------------------
 
-  // ✅ دالة loadRandomVerses الأصلية محفوظة مع إضافة تتبع
+  // ✅ تحديث دالة loadRandomVerses لاستخدام endpoint الجديد
   const loadRandomVerses = async () => {
     try {
-      // ✅ إضافة: تتبع تحديث الآيات العشوائية
+      // 📊 تتبع تحديث الآيات العشوائية
       Analytics.useFeature('refresh_random_verses')
-      Analytics.trackUserInteraction('button', 'refresh_random_verses', 'click')
       
+      // ✅ استخدام endpoint الجديد للآيات المحسّنة
       const res = await axios.get(`${API_URL}/verses/random-with-similarities`, {
         params: {
-          limit: 10,
-          min_similarity: 0.85
+          limit: 10,           // ✅ 10 آيات بدلاً من 5
+          min_similarity: 0.85  // ✅ نسبة تشابه 85%+
         }
       })
     
       console.log('✅ تم جلب آيات عشوائية محسّنة:', res.data)
       setRandomVerses(res.data.verses || [])
-      
-      // ✅ إضافة: تتبع نجاح الجلب
-      Analytics.trackEvent('Content', 'random_verses_loaded', 'success', res.data.verses?.length || 0)
     } catch (err) {
       console.error('❌ خطأ في جلب الآيات:', err)
-      
-      // ✅ إضافة: تتبع الخطأ
-      Analytics.trackEvent('Error', 'load_random_verses_error', err.message)
     
+      // Fallback: الطريقة القديمة
       try {
         const skip = Math.floor(Math.random() * 6000)
         const res = await axios.get(`${API_URL}/verses?skip=${skip}&limit=10`)
@@ -157,95 +154,83 @@ function App() {
     }
   }
 
-  // 4. دالة handleSearch الأصلية محفوظة مع إضافة تتبع
-  const handleSearch = async (query = searchQuery) => {
-    const trimmedQuery = query.trim()
-    if (!trimmedQuery || isSearching) return
+  // 4. تعديل دالة handleSearch لاستدعاء تحديث السجل (Replace the whole function)
+// ✅ الحل: أرسل النص الأصلي للباك اند
+const handleSearch = async (query = searchQuery) => {
+  const trimmedQuery = query.trim()
+  if (!trimmedQuery || isSearching) return
 
-    setIsSearching(true)
-    setSearchResults([])
+  setIsSearching(true)
+  setSearchResults([])
 
-    // ✅ إضافة: تتبع بدء البحث
-    const searchStartTime = Date.now()
-    Analytics.trackUserInteraction('search', 'text_search_initiated', 'start')
-    Analytics.trackDetailedSearch(trimmedQuery, 0, 'text')
-
-    try {
-      const response = await axios.get(`${API_URL}/search`, {
-        params: {
-          q: trimmedQuery,
-          limit: 100,
-          threshold: 0.7,
-          highlight: true
-        }
-      })
-
-      const searchData = response.data;
-      const versesArray = searchData.verses || searchData.results || searchData.versions || [];
-
-      if (versesArray.length > 0) {
-        setSearchResults(versesArray);
-        updateSearchHistory(trimmedQuery);
-        
-        // ✅ إضافة: تتبع نجاح البحث
-        const searchDuration = Date.now() - searchStartTime
-        Analytics.search(trimmedQuery, versesArray.length)
-        Analytics.trackDetailedSearch(trimmedQuery, versesArray.length, 'text', searchDuration)
-        Analytics.trackUserInteraction('search', 'text_search_completed', 'success')
-      } else {
-        alert('لم يتم العثور على نتائج مطابقة.');
-        
-        // ✅ إضافة: تتبع بحث بدون نتائج
-        Analytics.search(trimmedQuery, 0)
-        Analytics.trackUserInteraction('search', 'text_search_no_results', 'complete')
+  try {
+    // ✅ أرسل النص الأصلي بدون تنظيف!
+    const response = await axios.get(`${API_URL}/search`, {
+      params: {
+        q: trimmedQuery,  // ✅ النص الأصلي
+        limit: 100,
+        threshold: 0.7, // ✅ رفع threshold إلى 0.7 لمطابقة أفضل
+        highlight: true  // ✅ طلب التظليل
       }
-    } catch (error) {
-      console.error('خطأ في عملية البحث:', error);
+    })
+
+    const searchData = response.data;
+    const versesArray = searchData.verses || searchData.results || searchData.versions || [];
+
+    if (versesArray.length > 0) {
+      setSearchResults(versesArray);
+      updateSearchHistory(trimmedQuery);
       
-      // ✅ إضافة: تتبع خطأ البحث
-      Analytics.trackEvent('Search', 'search_error', error.message);
-      Analytics.trackUserInteraction('search', 'text_search_error', 'error')
+      // 📊 تتبع البحث الناجح
+      Analytics.search(trimmedQuery, versesArray.length);
+    } else {
+      alert('لم يتم العثور على نتائج مطابقة.');
       
-      if (error.response) {
-        alert('خطأ في الخادم: ' + (error.response.data?.message || 'يرجى المحاولة لاحقًا'));
-      } else if (error.request) {
-        alert('تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
-      } else {
-        alert('حدث خطأ غير متوقع أثناء البحث.');
-      }
-    } finally {
-      setIsSearching(false);
+      // 📊 تتبع البحث بدون نتائج
+      Analytics.search(trimmedQuery, 0);
     }
+  } catch (error) {
+    console.error('خطأ في عملية البحث:', error);
+    
+    // 📊 تتبع خطأ البحث
+    Analytics.trackEvent('Search', 'search_error', error.message);
+    
+    if (error.response) {
+      alert('خطأ في الخادم: ' + (error.response.data?.message || 'يرجى المحاولة لاحقًا'));
+    } else if (error.request) {
+      alert('تعذر الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
+    } else {
+      alert('حدث خطأ غير متوقع أثناء البحث.');
+    }
+  } finally {
+    setIsSearching(false);
   }
+}
 
-  // ✅ دالة handleVoiceSearch الأصلية محفوظة
   const handleVoiceSearch = (transcript) => {
     setSearchQuery(transcript)
     setTimeout(() => handleSearch(), 300)
   }
 
-  // ✅ دالة openSimilarities الأصلية محفوظة مع إضافة تتبع
+  // ✅ دالة واضحة ومباشرة لفتح المتشابهات
   const openSimilarities = (verse) => {
     console.log('Opening similarities for verse:', verse)
     setExplorerVerse(verse)
     setShowExplorer(true)
     
-    // ✅ إضافة: تتبع عرض المتشابهات
+    // 📊 تتبع عرض المتشابهات
     Analytics.viewSimilarVerses(verse.id || verse.surah + ':' + verse.ayah, 0)
-    Analytics.trackUserInteraction('button', 'view_similarities', 'click')
-    Analytics.useFeature('verse_similarities')
   }
 
-  // ✅ دالة closeSimilarities الأصلية محفوظة
+  // ✅ دالة واضحة لإغلاق المتشابهات
   const closeSimilarities = () => {
     setShowExplorer(false)
     setTimeout(() => setExplorerVerse(null), 300)
   }
 
-  // ✅ تعريف searchVersesArray محفوظ كما هو
+  // ✅ تعريف متغير مساعد لنتائج البحث
   const searchVersesArray = searchResults?.results || searchResults;
 
-  // ============ واجهة المستخدم الأصلية محفوظة 100% ============
   return (
     <ReciterContext.Provider value={selectedReciter}>
       <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '20px' }}>
@@ -265,18 +250,19 @@ function App() {
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
           
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '15px', flexWrap: 'wrap' }}>
+            {/* 🔴 تم حذف زر اختيار القارئ من هنا */}
+
             <button onClick={() => {
               setShowHelp(true)
-              // ✅ إضافة: تتبع فتح المساعدة
+              // 📊 تتبع فتح المساعدة
               Analytics.useFeature('help_modal')
-              Analytics.trackUserInteraction('button', 'help_modal', 'click')
             }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px', fontSize: '18px', fontWeight: 'bold', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)', transition: 'all 0.3s' }}>
               <HelpCircle size={24} />
               المساعدة والإرشاد
             </button>
           </div>
 
-          {/* زر التحميل للآيات العشوائية */}
+          {/* 1. عرض زر التحميل لـ الآيات العشوائية */}
           {randomVerses.length > 0 && searchQuery.length === 0 && activeView === null && (
               <DownloadResults 
                   data={randomVerses}
@@ -285,7 +271,7 @@ function App() {
               />
           )}
 
-          {/* زر التحميل لنتائج البحث */}
+          {/* 2. عرض زر التحميل لـ نتائج البحث */}
           {searchVersesArray && searchVersesArray.length > 0 && searchQuery.length > 0 && activeView === null && (
               <DownloadResults 
                   data={searchVersesArray}
@@ -300,13 +286,16 @@ function App() {
               🔍 البحث النصي
             </h2>
             
+            {/* 5. استبدال محتوى div شريط البحث بالكامل */}
             <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', alignItems: 'stretch' }}>
               
+              {/* 🎙️ مكون البحث الصوتي (يستخدم الدالة الجديدة startVoiceSearch) */}
               <VoiceSearch 
                 onTranscript={setSearchQuery} 
                 onStartSearch={startVoiceSearch} 
               />
               
+              {/* حقل الإدخال */}
               <div style={{ flex: 1, position: 'relative' }}>
                 <input
                   type="text"
@@ -331,6 +320,7 @@ function App() {
                   list="search-history-list" 
                 />
 
+                {/* 🆕 قائمة سجل البحث (datalist) */}
                 <datalist id="search-history-list">
                   {searchHistory.map((query, index) => (
                     <option key={index} value={query} />
@@ -338,6 +328,7 @@ function App() {
                 </datalist>
               </div>
               
+              {/* زر البحث (يبقى كما هو) */}
               <button 
                 onClick={() => handleSearch()} 
                 disabled={isSearching || !searchQuery.trim()}
@@ -373,11 +364,7 @@ function App() {
                   <h3 style={{ fontSize: '22px', fontWeight: 'bold', color: '#065f46', margin: 0 }}>
                     📋 النتائج ({searchVersesArray.length} آية)
                   </h3>
-                  <DownloadResults 
-                    data={searchVersesArray} 
-                    filename={` نتائج البحث النصي: ${searchQuery}`} 
-                    type="search" 
-                  />                                              
+                  <DownloadResults data={searchVersesArray} filename={` نتائج البحث النصي: ${searchQuery}`} type="search" />                                              
                 </div>
                 
                 <div style={{ display: 'grid', gap: '15px', maxHeight: '500px', overflowY: 'auto', padding: '10px' }}>
@@ -389,6 +376,7 @@ function App() {
                         </span>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                           <QuranAudioPlayer surah={verse.surah} ayah={verse.ayah} reciter={selectedReciter} />
+                          {/* ✅ زر عرض المتشابهات - واضح ومباشر */}
                           <button 
                             onClick={() => openSimilarities(verse)} 
                             style={{ 
@@ -407,6 +395,7 @@ function App() {
                           </button>
                         </div>
                       </div>
+                      {/* 🔥 FIXED: Use highlighted text with yellow background */}
                       <p 
                         style={{ fontSize: '20px', lineHeight: '2', fontFamily: 'Amiri, serif', textAlign: 'right', margin: 0, color: '#1f2937' }}
                         dangerouslySetInnerHTML={{ 
@@ -424,10 +413,8 @@ function App() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '30px' }}>
             <button onClick={() => {
               setShowQuiz(true)
-              // ✅ إضافة: تتبع بدء الاختبار
+              // 📊 تتبع بدء الاختبار
               Analytics.startQuiz('general', 'all')
-              Analytics.trackUserInteraction('button', 'quiz_game', 'click')
-              Analytics.useFeature('quiz_game')
             }} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white', border: 'none', padding: '35px 30px', borderRadius: '20px', cursor: 'pointer', fontSize: '22px', fontWeight: 'bold', textAlign: 'right', boxShadow: '0 8px 20px rgba(240, 147, 251, 0.4)', transition: 'all 0.3s' }}>
               <div style={{ fontSize: '48px', marginBottom: '15px' }}>🎮</div>
               <div style={{ marginBottom: '10px' }}>اختبر حفظك</div>
@@ -437,22 +424,20 @@ function App() {
             <button onClick={() => { 
               setExplorerVerse(null); 
               setShowExplorer(true);
-              // ✅ إضافة: تتبع استكشاف المتشابهات
+              // 📊 تتبع استكشاف المتشابهات
               Analytics.useFeature('similarities_explorer')
-              Analytics.trackUserInteraction('button', 'similarities_explorer', 'click')
             }} style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white', border: 'none', padding: '35px 30px', borderRadius: '20px', cursor: 'pointer', fontSize: '22px', fontWeight: 'bold', textAlign: 'right', boxShadow: '0 8px 20px rgba(79, 172, 254, 0.4)', transition: 'all 0.3s' }}>
               <div style={{ fontSize: '48px', marginBottom: '15px' }}>🔍</div>
               <div style={{ marginBottom: '10px' }}>استكشاف المتشابهات</div>
               <div style={{ fontSize: '16px', opacity: 0.9, fontWeight: 'normal' }}>اكتشف الآيات المتشابهة لفظياً</div>
             </button>
 
+            {/* ✅ زر إحصائيات القرآن الجديد */}
             <button
               onClick={() => {
                 setActiveView('stats')
-                // ✅ إضافة: تتبع عرض الإحصائيات
+                // 📊 تتبع عرض الإحصائيات
                 Analytics.useFeature('quran_stats')
-                Analytics.trackUserInteraction('button', 'quran_stats', 'click')
-                Analytics.viewWordStats('quran_stats_view')
               }}
               style={{
                 flex: '1',
@@ -502,8 +487,10 @@ function App() {
                       {verse.surah_name} ({verse.surah}:{verse.ayah})
                     </span>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      {/* ✅ هذا الزر سيبقى ويعمل لأنه يعتمد على selectedReciter و RECITERS */}
                       <QuranAudioPlayer surah={verse.surah} ayah={verse.ayah} reciter={selectedReciter} />
                       
+                      {/* ✅ زر عرض المتشابهات - متطابق مع نتائج البحث */}
                       <button 
                         onClick={() => openSimilarities(verse)} 
                         style={{ 
@@ -522,6 +509,7 @@ function App() {
                       </button>
                     </div>
                   </div>
+                  {/* 🔥 FIXED: Use highlighted text for random verses too */}
                   <p 
                     style={{ fontSize: '21px', lineHeight: '2.2', fontFamily: 'Amiri, serif', textAlign: 'right', margin: 0, color: '#1f2937' }}
                     dangerouslySetInnerHTML={{ 
@@ -535,6 +523,7 @@ function App() {
         </div>
 
       <footer style={{ 
+          // هذه الخاصية هي المسافة المطلوبة بين الآيات والتذييل
           marginTop: "60px", 
           paddingBottom: "20px", 
           paddingTop: "20px",
@@ -547,18 +536,18 @@ function App() {
               paddingRight: "16px" 
           }}>
               <p style={{ 
-                  fontSize: "30px",
-                  color: "white",
-                  fontWeight: "bold",
-                  marginBottom: "10px"
+                  fontSize: "30px", // حجم خط كبير (يمكن تعديله إلى 28px/24px حسب رغبتك)
+                  color: "white", // اللون الأبيض لكي يكون واضحاً
+                  fontWeight: "bold", // خط ثقيل/جريء
+                  marginBottom: "10px" // مسافة أسفل العنوان
               }}>
                   المصحف الذكي للمتشابهات
               </p>
         
               <p style={{ 
-                  color: "white",
-                  opacity: 0.8,
-                  marginBottom: "25px"
+                  color: "white", // اللون الأبيض
+                  opacity: 0.8, // وضوح أقل قليلاً
+                  marginBottom: "25px" // مسافة بين النص والشارات
               }}>
                   تطبيق لمشروع مفتوح المصدر
               </p>
@@ -590,12 +579,12 @@ function App() {
           </div>
       </footer>
 
-        {/* Modals - جميعها محفوظة كما هي */}
+        {/* Modals */}
         {showQuiz && <QuizGame onClose={() => setShowQuiz(false)} />}
         {showExplorer && <SimilaritiesExplorer onClose={closeSimilarities} selectedReciter={selectedReciter} initialVerse={explorerVerse} />}
         {showHelp && <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />}
         
-        {/* عرض إحصائيات القرآن */}
+        {/* ✅ عرض إحصائيات القرآن */}
         {activeView === 'stats' && (
           <QuranStats onClose={() => setActiveView(null)} />
         )}
