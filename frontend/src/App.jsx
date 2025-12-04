@@ -47,11 +47,20 @@ function App() {
     { id: 'sudais', name: 'عبد الرحمن السديس' }
   ]
 
-  // ✅ تهيئة GA4 عند تحميل التطبيق
+  // ✅ تهيئة GA4 عند تحميل التطبيق - بتسلسل صحيح
   useEffect(() => {
+    console.log('🚀 App mounted - Initializing GA...')
+    
+    // ✅ تهيئة GA أولاً
     initGA()
-    trackPageView(window.location.pathname)
-    console.log('📊 Google Analytics initialized')
+    
+    // ✅ تتبع الصفحة الرئيسية مع تأخير بسيط
+    const timer = setTimeout(() => {
+      trackPageView(window.location.pathname)
+      console.log('✅ GA initialization and page tracking complete')
+    }, 1000)
+    
+    return () => clearTimeout(timer)
   }, [])
 
   useEffect(() => {
