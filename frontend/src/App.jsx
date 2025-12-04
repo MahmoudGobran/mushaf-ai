@@ -11,6 +11,7 @@ import QuranStats from './components/QuranStats'
 import { normalizeSearchQuery } from './utils/textNormalizer'
 import { highlightWordsInText } from './utils/textNormalizer'
 import './styles.css'
+import { initGA, trackPageView, Analytics } from './utils/analytics' // ✅ إضافة GA4
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 export const ReciterContext = createContext()
@@ -46,6 +47,13 @@ function App() {
     { id: 'sudais', name: 'عبد الرحمن السديس' }
   ]
 
+  // ✅ تهيئة GA4 عند تحميل التطبيق
+  useEffect(() => {
+    initGA()
+    trackPageView(window.location.pathname)
+    console.log('📊 Google Analytics initialized')
+  }, [])
+
   useEffect(() => {
     loadRandomVerses()
     loadStats()
@@ -55,6 +63,9 @@ function App() {
     try {
       const res = await axios.get(`${API_URL}/stats`)
       setStats(res.data)
+      
+      // 📊 تتبع عرض الإحصائيات العامة
+      Analytics.viewWordStats('general_stats')
     } catch (err) {
       console.error('Stats error:', err)
     }
@@ -87,6 +98,10 @@ function App() {
     // تنظيف query الصوتي (إزالة النقاط etc)
     const cleanedQuery = query.replace(/[.,]/g, '').trim();
     setSearchQuery(cleanedQuery) 
+    
+    // 📊 تتبع استخدام البحث الصوتي
+    Analytics.useFeature('voice_search')
+    
     handleSearch(cleanedQuery) // تشغل handleSearch التي بدورها تحفظ السجل
   }
   // ----------------------------------------------------
@@ -94,6 +109,9 @@ function App() {
   // ✅ تحديث دالة loadRandomVerses لاستخدام endpoint الجديد
   const loadRandomVerses = async () => {
     try {
+      // 📊 تتبع تحديث الآيات العشوائية
+      Analytics.useFeature('refresh_random_verses')
+      
       // ✅ استخدام endpoint الجديد للآيات المحسّنة
       const res = await axios.get(`${API_URL}/verses/random-with-similarities`, {
         params: {
@@ -144,11 +162,20 @@ const handleSearch = async (query = searchQuery) => {
     if (versesArray.length > 0) {
       setSearchResults(versesArray);
       updateSearchHistory(trimmedQuery);
+      
+      // 📊 تتبع البحث الناجح
+      Analytics.search(trimmedQuery, versesArray.length);
     } else {
       alert('لم يتم العثور على نتائج مطابقة.');
+      
+      // 📊 تتبع البحث بدون نتائج
+      Analytics.search(trimmedQuery, 0);
     }
   } catch (error) {
     console.error('خطأ في عملية البحث:', error);
+    
+    // 📊 تتبع خطأ البحث
+    Analytics.trackEvent('Search', 'search_error', error.message);
     
     if (error.response) {
       alert('خطأ في الخادم: ' + (error.response.data?.message || 'يرجى المحاولة لاحقًا'));
@@ -172,6 +199,9 @@ const handleSearch = async (query = searchQuery) => {
     console.log('Opening similarities for verse:', verse)
     setExplorerVerse(verse)
     setShowExplorer(true)
+    
+    // 📊 تتبع عرض المتشابهات
+    Analytics.viewSimilarVerses(verse.id || verse.surah + ':' + verse.ayah, 0)
   }
 
   // ✅ دالة واضحة لإغلاق المتشابهات
@@ -204,7 +234,11 @@ const handleSearch = async (query = searchQuery) => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '15px', flexWrap: 'wrap' }}>
             {/* 🔴 تم حذف زر اختيار القارئ من هنا */}
 
-            <button onClick={() => setShowHelp(true)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px', fontSize: '18px', fontWeight: 'bold', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)', transition: 'all 0.3s' }}>
+            <button onClick={() => {
+              setShowHelp(true)
+              // 📊 تتبع فتح المساعدة
+              Analytics.useFeature('help_modal')
+            }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '14px 28px', fontSize: '18px', fontWeight: 'bold', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)', transition: 'all 0.3s' }}>
               <HelpCircle size={24} />
               المساعدة والإرشاد
             </button>
@@ -359,13 +393,22 @@ const handleSearch = async (query = searchQuery) => {
 
           {/* Main Buttons */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '25px', marginBottom: '30px' }}>
-            <button onClick={() => setShowQuiz(true)} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white', border: 'none', padding: '35px 30px', borderRadius: '20px', cursor: 'pointer', fontSize: '22px', fontWeight: 'bold', textAlign: 'right', boxShadow: '0 8px 20px rgba(240, 147, 251, 0.4)', transition: 'all 0.3s' }}>
+            <button onClick={() => {
+              setShowQuiz(true)
+              // 📊 تتبع بدء الاختبار
+              Analytics.startQuiz('general', 'all')
+            }} style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white', border: 'none', padding: '35px 30px', borderRadius: '20px', cursor: 'pointer', fontSize: '22px', fontWeight: 'bold', textAlign: 'right', boxShadow: '0 8px 20px rgba(240, 147, 251, 0.4)', transition: 'all 0.3s' }}>
               <div style={{ fontSize: '48px', marginBottom: '15px' }}>🎮</div>
               <div style={{ marginBottom: '10px' }}>اختبر حفظك</div>
               <div style={{ fontSize: '16px', opacity: 0.9, fontWeight: 'normal' }}>اختبارات تفاعلية مع نطاقات مخصصة</div>
             </button>
 
-            <button onClick={() => { setExplorerVerse(null); setShowExplorer(true); }} style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white', border: 'none', padding: '35px 30px', borderRadius: '20px', cursor: 'pointer', fontSize: '22px', fontWeight: 'bold', textAlign: 'right', boxShadow: '0 8px 20px rgba(79, 172, 254, 0.4)', transition: 'all 0.3s' }}>
+            <button onClick={() => { 
+              setExplorerVerse(null); 
+              setShowExplorer(true);
+              // 📊 تتبع استكشاف المتشابهات
+              Analytics.useFeature('similarities_explorer')
+            }} style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white', border: 'none', padding: '35px 30px', borderRadius: '20px', cursor: 'pointer', fontSize: '22px', fontWeight: 'bold', textAlign: 'right', boxShadow: '0 8px 20px rgba(79, 172, 254, 0.4)', transition: 'all 0.3s' }}>
               <div style={{ fontSize: '48px', marginBottom: '15px' }}>🔍</div>
               <div style={{ marginBottom: '10px' }}>استكشاف المتشابهات</div>
               <div style={{ fontSize: '16px', opacity: 0.9, fontWeight: 'normal' }}>اكتشف الآيات المتشابهة لفظياً</div>
@@ -373,7 +416,11 @@ const handleSearch = async (query = searchQuery) => {
 
             {/* ✅ زر إحصائيات القرآن الجديد */}
             <button
-              onClick={() => setActiveView('stats')}
+              onClick={() => {
+                setActiveView('stats')
+                // 📊 تتبع عرض الإحصائيات
+                Analytics.useFeature('quran_stats')
+              }}
               style={{
                 flex: '1',
                 minWidth: '250px',
