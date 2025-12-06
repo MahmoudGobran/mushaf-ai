@@ -2,10 +2,11 @@
 
 // ✅ تحقق مما إذا كان gtag محملاً
 const isGtagLoaded = () => {
+  // التأكد من أن مكتبة جوجل أناليتكس مُحمَّلة
   return typeof window.gtag !== 'undefined' && typeof window.dataLayer !== 'undefined';
 };
 
-// ✅ تهيئة GA (لا نحتاج فعلًا لشيء لأنه محمل في index.html)
+// ✅ تهيئة GA
 export const initGA = () => {
   if (isGtagLoaded()) {
     console.log('✅ Google Analytics is ready via gtag.js');
@@ -16,23 +17,37 @@ export const initGA = () => {
   }
 };
 
+// وظيفة مساعدة لمعالجة الإجراءات المؤجلة
+const processPendingActions = () => {
+  if (window.pendingGAActions) {
+    window.pendingGAActions.forEach(action => {
+      if (action.type === 'pageview') {
+        trackPageView(action.path);
+      } else if (action.type === 'event') {
+        trackEvent(action.category, action.action, action.label, action.value);
+      }
+    });
+    window.pendingGAActions = []; // مسح القائمة
+  }
+};
+
 // ✅ تتبع عرض الصفحة
 export const trackPageView = (path) => {
   if (isGtagLoaded()) {
-    window.gtag('config', 'G-VYHKHT4HTS', {
+    // يرجى استبدال 'G-VYHKHT4HTS' بمعرف تتبع GA4 الخاص بك
+    window.gtag('config', 'G-VYHKHT4HTS', { 
       page_path: path,
       page_title: document.title
     });
     console.log(`📊 Page view tracked: ${path}`);
   } else {
     console.log(`📋 Page view queued (GA not ready): ${path}`);
-    // تخزين مؤقت إذا احتجنا
     if (!window.pendingGAActions) window.pendingGAActions = [];
     window.pendingGAActions.push({ type: 'pageview', path });
   }
 };
 
-// ✅ تتبع الأحداث
+// ✅ تتبع الأحداث (الدالة الأصلية)
 export const trackEvent = (category, action, label = '', value = 0) => {
   if (isGtagLoaded()) {
     window.gtag('event', action, {
@@ -44,47 +59,35 @@ export const trackEvent = (category, action, label = '', value = 0) => {
   } else {
     console.log(`📋 Event queued (GA not ready): ${category} - ${action}`);
     if (!window.pendingGAActions) window.pendingGAActions = [];
-    window.pendingGAActions.push({ 
-      type: 'event', 
-      category, 
-      action, 
-      label, 
-      value 
-    });
-  }
-};
+    window.pendingGAActions.push({ type: 'event', category, action, label, value });
 
-// ✅ معالجة الأحداث المعلقة عند تحميل GA
-const processPendingActions = () => {
-  if (window.pendingGAActions && window.pendingGAActions.length > 0) {
-    console.log(`🔄 Processing ${window.pendingGAActions.length} pending GA actions`);
-    window.pendingGAActions.forEach(action => {
-      if (action.type === 'pageview') {
-        trackPageView(action.path);
-      } else if (action.type === 'event') {
-        trackEvent(action.category, action.action, action.label, action.value);
+    // تحقق بشكل دوري من تحميل gtag
+    const checkGtagInterval = setInterval(() => {
+      if (isGtagLoaded()) {
+        clearInterval(checkGtagInterval);
+        processPendingActions();
       }
-    });
-    window.pendingGAActions = [];
+    }, 1000);
+    
+    // توقف بعد 10 ثواني
+    setTimeout(() => clearInterval(checkGtagInterval), 10000);
   }
 };
-
-// ✅ استمع لتحميل gtag
-if (typeof window !== 'undefined') {
-  // تحقق بشكل دوري من تحميل gtag
-  const checkGtagInterval = setInterval(() => {
-    if (isGtagLoaded()) {
-      clearInterval(checkGtagInterval);
-      processPendingActions();
-    }
-  }, 1000);
-  
-  // توقف بعد 10 ثواني
-  setTimeout(() => clearInterval(checkGtagInterval), 10000);
-}
 
 // ✅ أحداث مخصصة للتطبيق
 export const Analytics = {
+  
+  // 🛑 تم إعادة إضافة الدوال المفقودة لضمان استقرار App.jsx 🛑
+  useFeature: (featureName) => {
+    trackEvent('Feature', 'use', featureName);
+  },
+  
+  test: () => {
+    trackEvent('Test', 'test_call', 'initial_test');
+  },
+  // 🛑 نهاية الدوال المضافة 🛑
+
+
   // البحث
   search: (query, resultsCount) => {
     const safeQuery = query ? query.substring(0, 100) : '';
@@ -109,22 +112,22 @@ export const Analytics = {
   viewWordStats: (word) => {
     trackEvent('Stats', 'view_word_stats', word);
   },
-  
-  // الميزات
-  useFeature: (featureName) => {
-    trackEvent('Feature', 'feature_used', featureName);
-  },
-  
-  // اختبار GA
-  test: () => {
-    console.log('🧪 Testing GA integration...');
-    console.log('gtag loaded?', isGtagLoaded());
-    console.log('dataLayer:', window.dataLayer);
-    
+
+  // 📝 التعليقات (التقييمات، الاقتراحات، البلاغات) - ✅ الجديد والمصحح
+  submitFeedback: (type, data) => {
+    // 1. تتبع الحدث الأساسي باستخدام الدالة الموجودة (للتوافق القديم)
+    trackEvent('Feedback', `submit_${type}`, data.title || data.category || data.rating_value || 'N/A', data.rating_value || 0);
+
+    // 2. إطلاق حدث GA4 منفصل بـ Parameters لبيانات منظمة
     if (isGtagLoaded()) {
-      trackEvent('Test', 'analytics_test', 'Testing GA4 integration', 1);
-      return true;
+      const eventParams = {
+        feedback_type: type, // rating, suggestion, bug
+        page_url: window.location.pathname,
+        ...data // تمرير البيانات الإضافية
+      };
+      
+      window.gtag('event', 'feedback_submitted', eventParams);
+      console.log(`📊 GA4 Event: feedback_submitted`, eventParams);
     }
-    return false;
-  }
+  },
 };

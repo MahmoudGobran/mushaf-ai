@@ -13,6 +13,11 @@ import { highlightWordsInText } from './utils/textNormalizer'
 import './styles.css'
 import { initGA, trackPageView, Analytics } from './utils/analytics' // ✅ إضافة GA4
 
+import FeedbackButton from './components/FeedbackButton'
+import RatingModal from './components/RatingModal'
+import SuggestionModal from './components/SuggestionModal'
+import BugReportModal from './components/BugReportModal'
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 export const ReciterContext = createContext()
 
@@ -28,6 +33,13 @@ function App() {
   const [stats, setStats] = useState(null)
   const [selectedReciter, setSelectedReciter] = useState('afasy')
   const [activeView, setActiveView] = useState(null)
+
+  const [showRatingModal, setShowRatingModal] = useState(false)
+  const [showSuggestionModal, setShowSuggestionModal] = useState(false)
+  const [showBugReportModal, setShowBugReportModal] = useState(false)
+
+
+
 
   // 1. إضافة حالة searchHistory في قسم الحالات (States)
   const [searchHistory, setSearchHistory] = useState(() => {
@@ -249,9 +261,38 @@ const handleSearch = async (query = searchQuery) => {
 
         <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
           
+          {/* 🌟 التعديل هنا: نقل زر التقييم إلى شريط الإجراءات العلوي */}
+          {/* ✅ تم عكس ترتيب الأزرار ليكون زر التقييم هو الأول (في أقصى اليمين في تخطيط RTL) */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '20px', gap: '15px', flexWrap: 'wrap' }}>
             {/* 🔴 تم حذف زر اختيار القارئ من هنا */}
+            
+            {/* 🚀 1. زر الملاحظات/التقييم الجديد (ليظهر على أقصى اليمين) */}
+            <FeedbackButton 
+              onOpenRating={() => setShowRatingModal(true)} 
+              onOpenSuggestion={() => setShowSuggestionModal(true)} 
+              onOpenBugReport={() => setShowBugReportModal(true)}
+              // ✅ خصائص التنسيق الجديدة
+              customLabel="تقييم / ملاحظات" 
+              isHeaderButton={true} 
+              // ✅ استخدام نفس تصميم زر المساعدة تقريباً بلون مختلف
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                padding: '14px 28px', 
+                fontSize: '18px', 
+                fontWeight: 'bold', 
+                backgroundColor: '#8b5cf6', // لون مختلف قليلاً لتمييزه
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '12px', 
+                cursor: 'pointer', 
+                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.4)', 
+                transition: 'all 0.3s' 
+              }}
+            />
 
+            {/* ✅ 2. زر المساعدة والإرشاد (ليظهر على يسار زر التقييم) */}
             <button onClick={() => {
               setShowHelp(true)
               // 📊 تتبع فتح المساعدة
@@ -260,6 +301,7 @@ const handleSearch = async (query = searchQuery) => {
               <HelpCircle size={24} />
               المساعدة والإرشاد
             </button>
+            
           </div>
 
           {/* 1. عرض زر التحميل لـ الآيات العشوائية */}
@@ -447,7 +489,7 @@ const handleSearch = async (query = searchQuery) => {
                 border: 'none',
                 borderRadius: '16px',
                 color: 'white',
-                fontSize: '20px',
+                fontSize: '22px',
                 fontWeight: 'bold',
                 cursor: 'pointer',
                 boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
@@ -456,9 +498,9 @@ const handleSearch = async (query = searchQuery) => {
               onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
               onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              <div style={{ fontSize: '40px', marginBottom: '10px' }}>📊</div>
+              <div style={{ fontSize: '48px', marginBottom: '10px' }}>📊</div>
               <div>إحصائيات القرآن</div>
-              <div style={{ fontSize: '14px', opacity: 0.9, marginTop: '5px' }}>
+              <div style={{ fontSize: '16px', opacity: 0.9, marginTop: '5px', fontWeight: 'normal' }}>
                 ابحث عن تكرار كلمة في المصحف
               </div>
             </button>
@@ -578,6 +620,21 @@ const handleSearch = async (query = searchQuery) => {
               </div>
           </div>
       </footer>
+
+        {/* 🌟 نظام التقييم والتعليقات - تم إزالة زر FeedbackButton العائم من هنا */}
+        
+        <RatingModal 
+          isOpen={showRatingModal} 
+          onClose={() => setShowRatingModal(false)}
+        />
+        <SuggestionModal 
+          isOpen={showSuggestionModal} 
+          onClose={() => setShowSuggestionModal(false)}
+        />
+        <BugReportModal 
+          isOpen={showBugReportModal} 
+          onClose={() => setShowBugReportModal(false)}
+        />
 
         {/* Modals */}
         {showQuiz && <QuizGame onClose={() => setShowQuiz(false)} />}

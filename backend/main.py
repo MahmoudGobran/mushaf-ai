@@ -2671,6 +2671,330 @@ def debug_check_cache(
     }
 
 # ============================================
+# ⭐ نظام التقييم والتعليقات - NEW!
+# ============================================
+# أضف هذا الكود في نهاية main.py (قبل if __name__ == "__main__":)
+
+from pydantic import BaseModel, Field
+from typing import Optional, Literal
+from datetime import datetime
+import json
+from pathlib import Path as FilePath
+
+# ============================================
+# 📊 Models (Pydantic)
+# ============================================
+
+class RatingFeedback(BaseModel):
+    """تقييم بالنجوم مع تعليق اختياري"""
+    rating: int = Field(..., ge=1, le=5, description="التقييم من 1 إلى 5 نجوم")
+    comment: Optional[str] = Field(None, max_length=500, description="تعليق اختياري")
+    user_email: Optional[str] = Field(None, max_length=100, description="Email اختياري")
+    page: Optional[str] = Field(None, description="الصفحة التي تم التقييم منها")
+
+class SuggestionFeedback(BaseModel):
+    """اقتراح لتحسين التطبيق"""
+    title: str = Field(..., min_length=5, max_length=100, description="عنوان الاقتراح")
+    description: str = Field(..., min_length=10, max_length=1000, description="تفاصيل الاقتراح")
+    category: Optional[Literal["feature", "ui", "performance", "content", "other"]] = Field("other", description="نوع الاقتراح")
+    user_email: Optional[str] = Field(None, max_length=100, description="Email للتواصل")
+
+class BugReportFeedback(BaseModel):
+    """إبلاغ عن خطأ أو مشكلة"""
+    title: str = Field(..., min_length=5, max_length=100, description="عنوان المشكلة")
+    description: str = Field(..., min_length=10, max_length=1000, description="وصف المشكلة")
+    steps_to_reproduce: Optional[str] = Field(None, max_length=1000, description="خطوات إعادة إنتاج المشكلة")
+    browser: Optional[str] = Field(None, max_length=50, description="المتصفح المستخدم")
+    device: Optional[str] = Field(None, max_length=50, description="الجهاز المستخدم")
+    user_email: Optional[str] = Field(None, max_length=100, description="Email للتواصل")
+
+# ============================================
+# 💾 دوال حفظ وقراءة البيانات
+# ============================================
+
+FEEDBACK_DIR = FilePath("feedback_data")
+RATINGS_FILE = FEEDBACK_DIR / "ratings.json"
+SUGGESTIONS_FILE = FEEDBACK_DIR / "suggestions.json"
+BUGS_FILE = FEEDBACK_DIR / "bugs.json"
+
+def ensure_feedback_dir():
+    """إنشاء مجلد feedback إذا لم يكن موجوداً"""
+    FEEDBACK_DIR.mkdir(exist_ok=True)
+    
+    # إنشاء الملفات إذا لم تكن موجودة
+    for file in [RATINGS_FILE, SUGGESTIONS_FILE, BUGS_FILE]:
+        if not file.exists():
+            file.write_text("[]", encoding="utf-8")
+
+def save_feedback(file_path: FilePath, data: dict) -> dict:
+    """حفظ feedback في ملف JSON"""
+    try:
+        ensure_feedback_dir()
+        
+        # قراءة البيانات الحالية
+        existing_data = json.loads(file_path.read_text(encoding="utf-8"))
+        
+        # إضافة timestamp و id
+        data["id"] = len(existing_data) + 1
+        data["timestamp"] = datetime.now().isoformat()
+        
+        # إضافة البيانات الجديدة
+        existing_data.append(data)
+        
+        # حفظ البيانات
+        file_path.write_text(
+            json.dumps(existing_data, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
+        
+        return data
+    except Exception as e:
+        print(f"❌ خطأ في حفظ feedback: {e}")
+        raise
+
+def load_feedback(file_path: FilePath) -> list:
+    """قراءة feedback من ملف JSON"""
+    try:
+        ensure_feedback_dir()
+        return json.loads(file_path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"❌ خطأ في قراءة feedback: {e}")
+        return []
+
+# ============================================
+# 🌐 Endpoints
+# ============================================
+
+@app.post("/api/feedback/rating")
+def submit_rating(feedback: RatingFeedback):
+    """
+    إرسال تقييم بالنجوم
+    
+    - **rating**: التقييم من 1 إلى 5 نجوم
+    - **comment**: تعليق اختياري (حتى 500 حرف)
+    - **user_email**: Email اختياري للتواصل
+    """
+    try:
+        data = feedback.dict()
+        saved_data = save_feedback(RATINGS_FILE, data)
+        
+        print(f"⭐ تقييم جديد: {feedback.rating} نجوم")
+        if feedback.comment:
+            print(f"   التعليق: {feedback.comment[:50]}...")
+        
+        return {
+            "success": True,
+            "message": "شكراً لتقييمك! 🌟",
+            "data": saved_data
+        }
+    except Exception as e:
+        print(f"❌ خطأ في حفظ التقييم: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/feedback/suggestion")
+def submit_suggestion(feedback: SuggestionFeedback):
+    """
+    إرسال اقتراح لتحسين التطبيق
+    
+    - **title**: عنوان الاقتراح (5-100 حرف)
+    - **description**: تفاصيل الاقتراح (10-1000 حرف)
+    - **category**: نوع الاقتراح (feature/ui/performance/content/other)
+    """
+    try:
+        data = feedback.dict()
+        saved_data = save_feedback(SUGGESTIONS_FILE, data)
+        
+        print(f"💡 اقتراح جديد: {feedback.title}")
+        print(f"   الفئة: {feedback.category}")
+        
+        return {
+            "success": True,
+            "message": "شكراً لاقتراحك! سننظر فيه قريباً 💡",
+            "data": saved_data
+        }
+    except Exception as e:
+        print(f"❌ خطأ في حفظ الاقتراح: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/feedback/bug")
+def submit_bug_report(feedback: BugReportFeedback):
+    """
+    إبلاغ عن خطأ أو مشكلة
+    
+    - **title**: عنوان المشكلة (5-100 حرف)
+    - **description**: وصف المشكلة (10-1000 حرف)
+    - **steps_to_reproduce**: خطوات إعادة إنتاج المشكلة (اختياري)
+    - **browser**: المتصفح المستخدم (اختياري)
+    - **device**: الجهاز المستخدم (اختياري)
+    """
+    try:
+        data = feedback.dict()
+        saved_data = save_feedback(BUGS_FILE, data)
+        
+        print(f"🐛 بلاغ خطأ جديد: {feedback.title}")
+        if feedback.browser:
+            print(f"   المتصفح: {feedback.browser}")
+        
+        return {
+            "success": True,
+            "message": "شكراً لإبلاغك! سنعمل على إصلاح المشكلة 🔧",
+            "data": saved_data
+        }
+    except Exception as e:
+        print(f"❌ خطأ في حفظ البلاغ: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/feedback/summary")
+def get_feedback_summary():
+    """
+    📊 ملخص جميع التقييمات والاقتراحات (للمسؤول)
+    """
+    try:
+        ratings = load_feedback(RATINGS_FILE)
+        suggestions = load_feedback(SUGGESTIONS_FILE)
+        bugs = load_feedback(BUGS_FILE)
+        
+        # حساب متوسط التقييم
+        avg_rating = 0
+        if ratings:
+            total_rating = sum(r.get("rating", 0) for r in ratings)
+            avg_rating = round(total_rating / len(ratings), 2)
+        
+        # إحصائيات التقييمات
+        rating_counts = {i: 0 for i in range(1, 6)}
+        for r in ratings:
+            rating = r.get("rating", 0)
+            if 1 <= rating <= 5:
+                rating_counts[rating] += 1
+        
+        # إحصائيات الاقتراحات حسب الفئة
+        suggestion_categories = {}
+        for s in suggestions:
+            category = s.get("category", "other")
+            suggestion_categories[category] = suggestion_categories.get(category, 0) + 1
+        
+        return {
+            "summary": {
+                "total_ratings": len(ratings),
+                "average_rating": avg_rating,
+                "rating_distribution": rating_counts,
+                "total_suggestions": len(suggestions),
+                "suggestion_by_category": suggestion_categories,
+                "total_bugs": len(bugs)
+            },
+            "recent_ratings": ratings[-5:] if ratings else [],
+            "recent_suggestions": suggestions[-5:] if suggestions else [],
+            "recent_bugs": bugs[-5:] if bugs else []
+        }
+    except Exception as e:
+        print(f"❌ خطأ في جلب الملخص: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/admin/feedback/all")
+def get_all_feedback(
+    type: Literal["rating", "suggestion", "bug"] = Query("rating", description="نوع الـ feedback"),
+    limit: int = Query(50, ge=1, le=1000, description="عدد النتائج")
+):
+    """
+    📋 جلب جميع التقييمات/الاقتراحات/البلاغات (للمسؤول)
+    """
+    try:
+        if type == "rating":
+            data = load_feedback(RATINGS_FILE)
+        elif type == "suggestion":
+            data = load_feedback(SUGGESTIONS_FILE)
+        elif type == "bug":
+            data = load_feedback(BUGS_FILE)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid type")
+        
+        # ترتيب عكسي (الأحدث أولاً)
+        data.reverse()
+        
+        return {
+            "type": type,
+            "total": len(data),
+            "data": data[:limit]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ خطأ في جلب البيانات: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# 🧪 Endpoint للاختبار (اختياري)
+# ============================================
+
+@app.post("/api/admin/feedback/test")
+def create_test_feedback():
+    """
+    🧪 إنشاء بيانات اختبار (للتطوير فقط)
+    """
+    try:
+        # تقييمات تجريبية
+        test_ratings = [
+            {"rating": 5, "comment": "تطبيق رائع جداً! استفدت كثيراً من ميزة المتشابهات"},
+            {"rating": 4, "comment": "ممتاز ولكن يحتاج تحسين السرعة قليلاً"},
+            {"rating": 5, "comment": "ماشاء الله تبارك الله، جزاكم الله خيراً"},
+            {"rating": 3, "comment": "جيد لكن الواجهة تحتاج تحسين"},
+            {"rating": 5, "comment": "أفضل تطبيق قرآني استخدمته!"}
+        ]
+        
+        for rating in test_ratings:
+            save_feedback(RATINGS_FILE, rating)
+        
+        # اقتراحات تجريبية
+        test_suggestions = [
+            {
+                "title": "إضافة وضع ليلي",
+                "description": "يرجى إضافة وضع ليلي لحماية العينين",
+                "category": "ui"
+            },
+            {
+                "title": "تحميل الآيات للقراءة دون إنترنت",
+                "description": "إمكانية تحميل السور للقراءة بدون اتصال",
+                "category": "feature"
+            }
+        ]
+        
+        for suggestion in test_suggestions:
+            save_feedback(SUGGESTIONS_FILE, suggestion)
+        
+        # بلاغات تجريبية
+        test_bugs = [
+            {
+                "title": "خطأ في عرض الآيات الطويلة",
+                "description": "بعض الآيات الطويلة لا تظهر كاملة على الشاشات الصغيرة",
+                "browser": "Chrome",
+                "device": "Android"
+            }
+        ]
+        
+        for bug in test_bugs:
+            save_feedback(BUGS_FILE, bug)
+        
+        return {
+            "success": True,
+            "message": "تم إنشاء بيانات الاختبار بنجاح",
+            "created": {
+                "ratings": len(test_ratings),
+                "suggestions": len(test_suggestions),
+                "bugs": len(test_bugs)
+            }
+        }
+    except Exception as e:
+        print(f"❌ خطأ في إنشاء بيانات الاختبار: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# تهيئة مجلد feedback عند بدء التشغيل
+# ============================================
+ensure_feedback_dir()
+print("✅ نظام التقييم والتعليقات جاهز")
+
+
+# ============================================
 # ⚙️ تشغيل الخادم
 # ============================================
 if __name__ == "__main__":
