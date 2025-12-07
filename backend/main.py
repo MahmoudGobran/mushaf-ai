@@ -65,8 +65,9 @@ print(f"💾 Database: {DATABASE_URL}")
 
 # 5️⃣ CORS Origins (للأمان)
 ALLOWED_ORIGINS = os.environ.get(
-    "ALLOWED_ORIGINS", 
-    "http://localhost:5173,http://127.0.0.1:5173"
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,https://mushaf-ai-frontend.onrender.com" 
+    #"http://localhost:5173,http://127.0.0.1:5173"
 ).split(",")
 print(f"🔐 Allowed Origins: {ALLOWED_ORIGINS}")
 
