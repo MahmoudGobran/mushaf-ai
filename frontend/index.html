@@ -1,46 +1,121 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#667eea">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+  <title>المصحف الذكي للمتشابهات القرآنية</title>
+  
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-VYHKHT4HTS"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-VYHKHT4HTS');
+    console.log('✅ Google Analytics loaded');
+  </script>
+  
+  <script>
+    // PWA Installation - الإصدار النهائي
+    window.deferredPrompt = null;
     
-    <!-- ✅ Google Analytics 4 Tag -->
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-VYHKHT4HTS"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-VYHKHT4HTS');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      window.deferredPrompt = e;
+      console.log('✅ PWA جاهز للتثبيت التلقائي');
       
-      // ✅ وظائف مساعدة لتتبع الأحداث
-      window.trackGAEvent = function(category, action, label, value) {
-        gtag('event', action, {
-          event_category: category,
-          event_label: label,
-          value: value
-        });
-        console.log('📊 GA Event:', category, action, label);
+      // إنشاء زر التثبيت بعد 3 ثواني
+      setTimeout(createInstallButton, 3000);
+    });
+    
+    window.addEventListener('appinstalled', () => {
+      console.log('🎉 تم تثبيت التطبيق بنجاح!');
+      // إخفاء الزر بعد التثبيت
+      const btn = document.getElementById('install-btn');
+      if (btn) btn.style.display = 'none';
+    });
+    
+    function createInstallButton() {
+      // إذا كان الزر موجوداً بالفعل أو التطبيق مثبت
+      if (document.getElementById('install-btn') || 
+          window.matchMedia('(display-mode: standalone)').matches) {
+        return;
       }
       
-      // ✅ تتبع الصفحات
-      window.trackGAPageView = function(path, title) {
-        gtag('config', 'G-VYHKHT4HTS', {
-          page_path: path,
-          page_title: title || document.title
-        });
-        console.log('📊 GA Page View:', path);
-      }
+      const btn = document.createElement('button');
+      btn.id = 'install-btn';
+      btn.innerHTML = '📱 تثبيت التطبيق';
+      btn.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 25px;
+        border: none;
+        cursor: pointer;
+        z-index: 10000;
+        font-size: 14px;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        transition: all 0.3s;
+      `;
       
-      console.log('✅ Google Analytics 4 loaded successfully');
-    </script>
-    
-    <title>المصحف الذكي للمتشابهات القرآنية</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+      btn.onclick = () => {
+        if (window.location.protocol === 'https:' && window.deferredPrompt) {
+          // على HTTPS (Render): تثبيت تلقائي
+          window.deferredPrompt.prompt();
+        } else {
+          // على HTTP (محلياً): دليل تثبيت
+          alert('لتثبيت التطبيق:\n\n' +
+                '🔹 ابحث عن أيقونة 📱 في شريط العنوان\n' +
+                '🔹 أو اضغط على النقاط الثلاث ⋮\n' +
+                '🔹 ثم اختر "تثبيت التطبيق"\n\n' +
+                '✅ على الموقع الرسمي (Render) سيعمل الزر تلقائياً!');
+        }
+      };
+      
+      document.body.appendChild(btn);
+      console.log('✅ زر التثبيت معروض');
+    }
+  </script>
+</head>
+<body>
+  <!-- شاشة تحميل بسيطة -->
+  <div id="loading" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    color: white;
+    font-size: 24px;
+  ">
+    جاري تحميل المصحف الذكي...
+  </div>
+  
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+  
+  <script>
+    // إخفاء شاشة التحميل بعد 1.5 ثانية
+    setTimeout(() => {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.opacity = '0';
+        loading.style.transition = 'opacity 0.5s';
+        setTimeout(() => loading.style.display = 'none', 500);
+      }
+    }, 1500);
+  </script>
+</body>
 </html>

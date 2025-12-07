@@ -1,3 +1,4 @@
+import { registerSW } from 'virtual:pwa-register';
 import { useState, useEffect, createContext } from 'react'
 import axios from 'axios'
 import { Search, RefreshCw, User, HelpCircle } from 'lucide-react'
@@ -65,6 +66,19 @@ function App() {
     
     // ✅ تهيئة GA
     const gaInitialized = initGA();
+    
+    // ✅ ✅ ✅ PWA - سطر واحد فقط!
+    registerSW({
+      onNeedRefresh() {
+        // إشعار تحديث تلقائي
+        if (confirm('تحديث جديد متاح! هل تريد تحديث التطبيق الآن؟')) {
+          window.location.reload();
+        }
+      },
+      onOfflineReady() {
+        console.log('✅ التطبيق جاهز للعمل دون اتصال');
+      }
+    });
     
     // ✅ تتبع الصفحة الرئيسية مع تأخير لضمان تحميل gtag
     const pageViewTimer = setTimeout(() => {

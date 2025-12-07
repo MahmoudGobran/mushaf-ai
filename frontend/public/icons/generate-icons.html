@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>مولد أيقونات المصحف الذكي</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 50px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            direction: rtl;
+        }
+        button { 
+            padding: 20px 40px; 
+            font-size: 18px; 
+            background: white; 
+            color: #667eea; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            font-weight: bold;
+            margin: 20px;
+        }
+        .info { 
+            background: rgba(255,255,255,0.1); 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin: 20px auto; 
+            max-width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 مولد أيقونات المصحف الذكي</h1>
+    <div class="info">
+        <p>انقر الزر أدناه لتحميل 4 أيقونات تلقائياً</p>
+        <p>📁 سيتم حفظها في مجلد: <code>public/icons/</code></p>
+    </div>
+    
+    <button onclick="generateAllIcons()">🚀 توليد جميع الأيقونات</button>
+    
+    <div id="status" style="margin-top: 30px;"></div>
+    
+    <script>
+        function generateIcon(size, name, isMaskable = false) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = size;
+            canvas.height = size;
+            
+            // 1. الخلفية المتدرجة
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            
+            if (isMaskable) {
+                // للـ maskable: إضافة padding داخلي
+                const padding = size * 0.1;
+                ctx.fillRect(padding, padding, size - padding*2, size - padding*2);
+            } else {
+                // للـ regular: ملء كامل مع زوايا دائرية
+                const radius = size * 0.15;
+                ctx.beginPath();
+                ctx.moveTo(radius, 0);
+                ctx.lineTo(size - radius, 0);
+                ctx.quadraticCurveTo(size, 0, size, radius);
+                ctx.lineTo(size, size - radius);
+                ctx.quadraticCurveTo(size, size, size - radius, size);
+                ctx.lineTo(radius, size);
+                ctx.quadraticCurveTo(0, size, 0, size - radius);
+                ctx.lineTo(0, radius);
+                ctx.quadraticCurveTo(0, 0, radius, 0);
+                ctx.closePath();
+                ctx.fill();
+            }
+            
+            // 2. النص "المصحف الذكي"
+            ctx.fillStyle = 'white';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = `bold ${size * 0.23}px Arial`;
+            ctx.fillText('المصحف', size/2, size * 0.35);
+            
+            ctx.font = `bold ${size * 0.19}px Arial`;
+            ctx.fillText('الذكي', size/2, size * 0.6);
+            
+            // 3. رسم رمز القرآن (خطوط)
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.02;
+            ctx.globalAlpha = 0.8;
+            
+            // رسم خطوط قرآنية
+            for(let i = 0; i < 5; i++) {
+                const y = size * 0.75 + (i * size * 0.04);
+                ctx.beginPath();
+                ctx.moveTo(size * 0.3, y);
+                ctx.lineTo(size * 0.7, y);
+                ctx.stroke();
+            }
+            
+            // تحويل إلى Blob وتحميل
+            canvas.toBlob((blob) => {
+                const link = document.createElement('a');
+                link.download = name;
+                link.href = URL.createObjectURL(blob);
+                link.click();
+                URL.revokeObjectURL(link.href);
+                
+                document.getElementById('status').innerHTML += 
+                    `<p>✅ تم إنشاء: <strong>${name}</strong></p>`;
+            }, 'image/png');
+        }
+        
+        function generateAllIcons() {
+            document.getElementById('status').innerHTML = 
+                '<h3>🚀 جاري إنشاء الأيقونات...</h3>';
+            
+            // إعطاء وقت للمتصفح
+            setTimeout(() => {
+                generateIcon(192, 'icon-192x192.png');
+                setTimeout(() => {
+                    generateIcon(512, 'icon-512x512.png');
+                    setTimeout(() => {
+                        generateIcon(192, 'icon-maskable-192x192.png', true);
+                        setTimeout(() => {
+                            generateIcon(512, 'icon-maskable-512x512.png', true);
+                            
+                            document.getElementById('status').innerHTML += 
+                                '<h3>🎉 تم إنشاء جميع الأيقونات بنجاح!</h3>' +
+                                '<p>📁 تأكد من حفظها في: <code>public/icons/</code></p>' +
+                                '<p>✅ يمكنك الآن تشغيل: <code>npm run build</code></p>';
+                        }, 500);
+                    }, 500);
+                }, 500);
+            }, 500);
+        }
+        
+        // تحميل تلقائي عند فتح الصفحة
+        window.onload = function() {
+            console.log('🎨 مولد الأيقونات جاهز');
+        };
+    </script>
+</body>
+</html>
