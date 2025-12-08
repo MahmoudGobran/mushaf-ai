@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/',  // تأكد من وجود هذا
   plugins: [
     react(),
     
@@ -11,7 +12,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
-        'favicon.ico', 
+        'favicon.ico',
+        'manifest.webmanifest',
+        'icon-192x192.png',
+        'icon-512x512.png',
+        'icon-maskable-192x192.png',
+        'icon-maskable-512x512.png',
         'robots.txt', 
         'vite.svg',
         'icons/*.png',
@@ -24,6 +30,7 @@ export default defineConfig({
       manifest: {
         name: 'المصحف الذكي للمتشابهات القرآنية',
         id: '/',  // ← أضف هذا السطر هنا
+        start_url: '/?source=pwa',  // ← أضف هذا السطر
         short_name: 'المصحف الذكي',
         description: 'تطبيق ذكي لاستكشاف القرآن الكريم بميزات البحث المتقدم والمتشابهات والاختبارات',
         theme_color: '#667eea',
@@ -64,6 +71,23 @@ export default defineConfig({
           }
         ],
         
+        screenshots: [
+          {
+            src: '/screenshots/home.png',
+            sizes: '1280x720',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'الصفحة الرئيسية'
+          },
+          {
+            src: '/screenshots/search.png', 
+            sizes: '750x1334',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'بحث الآيات'
+          }
+        ],
+
         // ✅ Shortcuts (من ملفك)
         shortcuts: [
           {
@@ -207,6 +231,10 @@ export default defineConfig({
         // ⚡ إضافة globPatterns (من ملفي)
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,ttf,json}'],
         
+        globDirectory: 'dist',
+        globIgnores: ['**/node_modules/**/*'],
+
+
         // ⚡ إضافة navigationPreload (جديد - تسريع التنقل)
         navigationPreload: true,
         

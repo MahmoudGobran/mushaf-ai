@@ -1,0 +1,80 @@
+{
+  "name": "المصحف الذكي للمتشابهات القرآنية",
+  "short_name": "المصحف الذكي",
+  "description": "تطبيق ذكي لاستكشاف القرآن الكريم بميزات البحث المتقدم والمتشابهات والاختبارات",
+  "theme_color": "#667eea",
+  "background_color": "#ffffff",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "id": "/",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["education", "books", "reference"],
+  "icons": [
+    {
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/screenshot-home-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "الصفحة الرئيسية"
+    },
+    {
+      "src": "screenshots/screenshot-search-narrow.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "بحث الآيات"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "بحث نصي",
+      "short_name": "بحث",
+      "description": "البحث في القرآن الكريم",
+      "url": "/?action=search",
+      "icons": [{ "src": "icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "المتشابهات",
+      "short_name": "متشابهات",
+      "description": "استكشاف الآيات المتشابهة",
+      "url": "/?action=similar",
+      "icons": [{ "src": "icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "اختبار",
+      "short_name": "اختبار",
+      "description": "اختبر معرفتك بالقرآن",
+      "url": "/?action=quiz",
+      "icons": [{ "src": "icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

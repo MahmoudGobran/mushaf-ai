@@ -1,3 +1,4 @@
+import { PWAInjector } from './pwa-injector';
 import { registerSW } from 'virtual:pwa-register';
 import { useState, useEffect, createContext } from 'react'
 import axios from 'axios'
@@ -659,6 +660,10 @@ const handleSearch = async (query = searchQuery) => {
         {activeView === 'stats' && (
           <QuranStats onClose={() => setActiveView(null)} />
         )}
+
+        {/* ✅ أضف هذا السطر هنا - زر تثبيت PWA */}
+        <PWAInjector />
+
       </div>
     </ReciterContext.Provider>
   )
