@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- ========== PWA META TAGS ========== -->
+    <!-- Theme Color (يجب أن يتطابق مع manifest) -->
+    <meta name="theme-color" content="#667eea">
+    
+    <!-- iOS PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="المصحف الذكي">
+    
+    <!-- Microsoft PWA Meta Tags -->
+    <meta name="msapplication-TileColor" content="#667eea">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    
+    <!-- PWA Display Mode -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="المصحف الذكي">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mushaf-ai-frontend.onrender.com/">
+    <meta property="og:title" content="المصحف الذكي للمتشابهات القرآنية">
+    <meta property="og:description" content="تطبيق ذكي لاستكشاف القرآن الكريم بميزات البحث المتقدم والمتشابهات والاختبارات">
+    <meta property="og:image" content="/icons/icon-512x512.png">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://mushaf-ai-frontend.onrender.com/">
+    <meta property="twitter:title" content="المصحف الذكي للمتشابهات القرآنية">
+    <meta property="twitter:description" content="تطبيق ذكي لاستكشاف القرآن الكريم بميزات البحث المتقدم والمتشابهات والاختبارات">
+    <meta property="twitter:image" content="/icons/icon-512x512.png">
+    
+    <!-- iOS Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png">
+    
+    <!-- Maskable Icons for Adaptive Launchers -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-maskable-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-maskable-512x512.png">
+    
+    <!-- Manifest (سيتم توليده تلقائياً بواسطة vite-plugin-pwa) -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    
+    <!-- Splash Screens for iOS -->
+    <link rel="apple-touch-startup-image" 
+          href="/icons/apple-splash-2048-2732.jpg"
+          media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" 
+          href="/icons/apple-splash-1668-2388.jpg"
+          media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    <link rel="apple-touch-startup-image" 
+          href="/icons/apple-splash-1536-2048.jpg"
+          media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+    
+    <!-- Favicon (للتوافق مع المتصفحات القديمة) -->
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+    
+    <!-- ✅ Google Analytics 4 Tag -->
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-VYHKHT4HTS"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-VYHKHT4HTS');
+      
+      // ✅ وظائف مساعدة لتتبع الأحداث
+      window.trackGAEvent = function(category, action, label, value) {
+        gtag('event', action, {
+          event_category: category,
+          event_label: label,
+          value: value
+        });
+        console.log('📊 GA Event:', category, action, label);
+      }
+      
+      // ✅ تتبع الصفحات
+      window.trackGAPageView = function(path, title) {
+        gtag('config', 'G-VYHKHT4HTS', {
+          page_path: path,
+          page_title: title || document.title
+        });
+        console.log('📊 GA Page View:', path);
+      }
+      
+      console.log('✅ Google Analytics 4 loaded successfully');
+      
+      // ✅ PWA Installation Detection
+      window.isPWAInstalled = function() {
+        return window.matchMedia('(display-mode: standalone)').matches || 
+               window.navigator.standalone === true ||
+               document.referrer.includes('android-app://');
+      }
+      
+      // ✅ Detect PWA on load
+      window.addEventListener('load', function() {
+        if (window.isPWAInstalled()) {
+          console.log('📱 التطبيق يعمل كـ PWA مثبت');
+          // يمكنك إضافة كود خاص لوضع PWA هنا
+        } else {
+          console.log('🌐 التطبيق يعمل في المتصفح');
+        }
+      });
+      
+      // ✅ Online/Offline Detection
+      window.addEventListener('online', function() {
+        console.log('🌐 تم استعادة الاتصال بالإنترنت');
+        // يمكنك إضافة إشعار للمستخدم هنا
+      });
+      
+      window.addEventListener('offline', function() {
+        console.log('📴 أنت غير متصل بالإنترنت');
+        // يمكنك إضافة إشعار للمستخدم هنا
+      });
+    </script>
+    
+    <!-- ✅ PWA Installation Prompt - الإصدار المحسن -->
+    <script>
+      // التصحيح: اجعل deferredPrompt متاحاً على window
+      window.deferredPrompt = null;
+      let installButton = null;
+      
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPrompt = e;
+        
+        console.log('📱 PWA Installation Prompt is ready');
+        console.log('✅ deferredPrompt saved:', !!window.deferredPrompt);
+        console.log('🎯 prompt() available:', typeof e.prompt === 'function');
+        
+        // عرض الزر بعد تأخير قصير
+        setTimeout(createInstallButton, 3000);
+      });
+      
+      window.addEventListener('appinstalled', () => {
+        console.log('✅ PWA installed successfully');
+        removeInstallButton();
+        window.deferredPrompt = null;
+      });
+      
+      function createInstallButton() {
+        // إذا كان الزر موجوداً أو التطبيق مثبتاً بالفعل
+        if (installButton || window.isPWAInstalled()) {
+          console.log('⚠️ لا يمكن عرض زر التثبيت:', {
+            hasButton: !!installButton,
+            isInstalled: window.isPWAInstalled()
+          });
+          return;
+        }
+        
+        // إذا لم يكن deferredPrompt متاحاً
+        if (!window.deferredPrompt) {
+          console.log('⚠️ deferredPrompt غير متاح لإنشاء الزر');
+          return;
+        }
+        
+        console.log('🎯 إنشاء زر التثبيت المخصص');
+        
+        installButton = document.createElement('button');
+        installButton.id = 'pwa-install-button';
+        installButton.innerHTML = `
+          <div style="
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 50px;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            cursor: pointer;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            animation: pulse 2s infinite;
+            transition: all 0.3s ease;
+          ">
+            <span>📱</span>
+            <span>تثبيت التطبيق</span>
+          </div>
+        `;
+        
+        // استخدام onclick مباشرة (أبسط وأكثر موثوقية)
+        installButton.onclick = async function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          console.log('🖱️ تم النقر على زر التثبيت');
+          console.log('🔍 حالة deferredPrompt:', {
+            exists: !!window.deferredPrompt,
+            hasPrompt: window.deferredPrompt && typeof window.deferredPrompt.prompt === 'function'
+          });
+          
+          if (window.deferredPrompt && window.deferredPrompt.prompt) {
+            try {
+              console.log('🚀 جارٍ عرض نافذة التثبيت...');
+              
+              // استدعاء prompt() - هذه هي الخطوة الأساسية
+              window.deferredPrompt.prompt();
+              
+              // انتظار اختيار المستخدم
+              const choiceResult = await window.deferredPrompt.userChoice;
+              
+              console.log('✅ نتيجة التثبيت:', choiceResult.outcome);
+              
+              if (choiceResult.outcome === 'accepted') {
+                console.log('🎉 تم قبول التثبيت');
+                if (window.trackGAEvent) {
+                  window.trackGAEvent('PWA', 'install_accepted', 'user_accepted_pwa_install');
+                }
+              } else {
+                console.log('❌ تم رفض التثبيت');
+                if (window.trackGAEvent) {
+                  window.trackGAEvent('PWA', 'install_rejected', 'user_rejected_pwa_install');
+                }
+              }
+              
+              // تنظيف
+              window.deferredPrompt = null;
+              removeInstallButton();
+              
+            } catch (error) {
+              console.error('❌ خطأ في عملية التثبيت:', error);
+              console.error('تفاصيل الخطأ:', error.message);
+              
+              // دليل التثبيت اليدوي
+              alert('لتثبيت التطبيق:\n\n' +
+                    '1. اضغط على أيقونة 📱 في شريط العنوان\n' +
+                    '2. اختر "تثبيت التطبيق" أو "Install"\n' +
+                    '3. اتبع التعليمات على الشاشة');
+            }
+          } else {
+            console.log('⚠️ deferredPrompt غير متوفر');
+            alert('زر التثبيت غير جاهز. جرب تحديث الصفحة.');
+          }
+        };
+        
+        document.body.appendChild(installButton);
+        console.log('✅ زر التثبيت معروض بنجاح');
+      }
+      
+      function removeInstallButton() {
+        if (installButton) {
+          installButton.remove();
+          installButton = null;
+          console.log('✅ تم إخفاء زر التثبيت');
+        }
+      }
+      
+      // ✅ إضافة أنماط CSS للزر
+      if (!document.getElementById('pwa-install-styles')) {
+        const style = document.createElement('style');
+        style.id = 'pwa-install-styles';
+        style.textContent = `
+          @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6); }
+            100% { transform: scale(1); box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4); }
+          }
+          
+          #pwa-install-button:hover {
+            transform: scale(1.05) translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+          }
+          
+          #pwa-install-button:active {
+            transform: scale(0.98);
+          }
+        `;
+        document.head.appendChild(style);
+      }
+      
+      // ✅ زر بديل بسيط للاختبار
+      setTimeout(() => {
+        if (!window.isPWAInstalled() && !installButton && !document.getElementById('test-install-btn')) {
+          const testBtn = document.createElement('button');
+          testBtn.id = 'test-install-btn';
+          testBtn.textContent = '📱 اختبار التثبيت';
+          testBtn.style.cssText = `
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            z-index: 9999;
+            font-weight: bold;
+            box-shadow: 0 3px 10px rgba(76, 175, 80, 0.3);
+          `;
+          
+          testBtn.onclick = () => {
+            if (window.deferredPrompt) {
+              console.log('🔧 اختبار من الزر البديل...');
+              window.deferredPrompt.prompt();
+            }
+          };
+          
+          document.body.appendChild(testBtn);
+          console.log('✅ تم إضافة زر الاختبار البديل');
+        }
+      }, 5000);
+    </script>
+    
+    <title>المصحف الذكي للمتشابهات القرآنية</title>
+    
+    <!-- ✅ PWA Theme CSS -->
+    <style>
+      /* PWA Splash Screen Styles */
+      @media all and (display-mode: standalone) {
+        body {
+          /* Remove browser UI in standalone mode */
+          -webkit-touch-callout: none;
+          -webkit-user-select: none;
+          user-select: none;
+        }
+        
+        /* Custom scrollbar for PWA */
+        ::-webkit-scrollbar {
+          width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+          background: #f1f1f1;
+          border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+          background: #667eea;
+          border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+          background: #5a67d8;
+        }
+      }
+      
+      /* Prevent text selection on some elements in PWA */
+      .no-select {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      
+      /* Loading indicator for PWA */
+      .pwa-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        color: white;
+        font-family: Arial, sans-serif;
+        text-align: center;
+      }
+      
+      .pwa-loading h1 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+      }
+      
+      .pwa-loading p {
+        font-size: 1rem;
+        opacity: 0.9;
+      }
+      
+      /* PWA Offline Message */
+      .offline-message {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #f44336;
+        color: white;
+        padding: 15px 25px;
+        border-radius: 10px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        z-index: 10001;
+        font-weight: bold;
+        animation: slideIn 0.3s ease;
+      }
+      
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      /* PWA Update Notification */
+      .update-notification {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 10px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        z-index: 10001;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        animation: fadeInUp 0.3s ease;
+      }
+      
+      .update-notification button {
+        background: white;
+        color: #667eea;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateX(-50%) translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(-50%) translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- PWA Loading Screen (يظهر فقط أثناء التحميل الأولي) -->
+    <div id="pwa-loading" class="pwa-loading">
+      <h1>المصحف الذكي</h1>
+      <p>جاري تحميل التطبيق...</p>
+      <div style="margin-top: 20px;">
+        <div style="width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      </div>
+      <style>
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    </div>
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- PWA Scripts -->
+    <script>
+      // Hide loading screen when app is loaded
+      window.addEventListener('load', function() {
+        setTimeout(() => {
+          const loadingScreen = document.getElementById('pwa-loading');
+          if (loadingScreen) {
+            loadingScreen.style.transition = 'opacity 0.5s ease';
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 500);
+          }
+        }, 1000); // Wait 1 second minimum for better UX
+      });
+      
+      // Show offline notification
+      function showOfflineNotification() {
+        if (document.getElementById('offline-notification')) return;
+        
+        const notification = document.createElement('div');
+        notification.id = 'offline-notification';
+        notification.className = 'offline-message';
+        notification.innerHTML = '📴 أنت غير متصل بالإنترنت';
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+          notification.style.opacity = '0';
+          notification.style.transition = 'opacity 0.5s ease';
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 500);
+        }, 5000);
+      }
+      
+      // Remove offline notification
+      function removeOfflineNotification() {
+        const notification = document.getElementById('offline-notification');
+        if (notification) {
+          notification.style.opacity = '0';
+          notification.style.transition = 'opacity 0.5s ease';
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 500);
+        }
+      }
+      
+      // Online/Offline event listeners
+      window.addEventListener('online', function() {
+        console.log('🌐 Application is back online');
+        removeOfflineNotification();
+        
+        // Show reconnected notification
+        const notification = document.createElement('div');
+        notification.className = 'offline-message';
+        notification.style.background = '#4CAF50';
+        notification.innerHTML = '🌐 تم استعادة الاتصال بالإنترنت';
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+          notification.style.opacity = '0';
+          notification.style.transition = 'opacity 0.5s ease';
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 500);
+        }, 3000);
+      });
+      
+      window.addEventListener('offline', function() {
+        console.log('📴 Application is offline');
+        showOfflineNotification();
+      });
+      
+      // Check initial online status
+      if (!navigator.onLine) {
+        showOfflineNotification();
+      }
+      
+      // PWA Update Notification
+      function showUpdateNotification() {
+        if (document.getElementById('update-notification')) return;
+        
+        const notification = document.createElement('div');
+        notification.id = 'update-notification';
+        notification.className = 'update-notification';
+        notification.innerHTML = `
+          <span>🎉 إصدار جديد متاح!</span>
+          <button onclick="window.location.reload()">تحديث الآن</button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 10 seconds
+        setTimeout(() => {
+          notification.style.opacity = '0';
+          notification.style.transition = 'opacity 0.5s ease';
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 500);
+        }, 10000);
+      }
+      
+      // Expose functions to window for Service Worker
+      window.showUpdateNotification = showUpdateNotification;
+      
+      // ✅ وظيفة مساعدة للتحقق من حالة PWA
+      window.checkPWAStatus = function() {
+        console.log('🔍 فحص حالة PWA:');
+        console.log('- deferredPrompt:', window.deferredPrompt ? 'موجود ✓' : 'غير موجود ✗');
+        console.log('- isPWAInstalled():', window.isPWAInstalled ? (window.isPWAInstalled() ? 'مثبت ✓' : 'غير مثبت ✗') : 'غير معرف');
+        console.log('- زر التثبيت الرئيسي:', document.getElementById('pwa-install-button') ? 'موجود ✓' : 'غير موجود ✗');
+        console.log('- زر التثبيت البديل:', document.getElementById('test-install-btn') ? 'موجود ✓' : 'غير موجود ✗');
+        console.log('- Service Worker:', navigator.serviceWorker.controller ? 'مثبت ✓' : 'غير مثبت ✗');
+        
+        return {
+          deferredPrompt: !!window.deferredPrompt,
+          isPWAInstalled: window.isPWAInstalled ? window.isPWAInstalled() : false,
+          mainButton: !!document.getElementById('pwa-install-button'),
+          testButton: !!document.getElementById('test-install-btn'),
+          serviceWorker: !!navigator.serviceWorker.controller
+        };
+      };
+    </script>
+  </body>
+</html>
