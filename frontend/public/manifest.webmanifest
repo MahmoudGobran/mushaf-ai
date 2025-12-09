@@ -38,22 +38,7 @@
       "purpose": "maskable"
     }
   ],
-  "screenshots": [
-    {
-      "src": "screenshots/screenshot-home-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "الصفحة الرئيسية"
-    },
-    {
-      "src": "screenshots/screenshot-search-narrow.png",
-      "sizes": "750x1334",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "بحث الآيات"
-    }
-  ],
+
   "shortcuts": [
     {
       "name": "بحث نصي",

@@ -20,8 +20,6 @@ export default defineConfig({
         'icon-maskable-512x512.png',
         'robots.txt', 
         'vite.svg',
-        'icons/*.png',
-        'icons/*.jpg',
         'fonts/*.woff2',
         'fonts/*.ttf'
       ],
@@ -42,73 +40,59 @@ export default defineConfig({
         dir: 'rtl',
         categories: ['education', 'books', 'reference'],
         
-        // ✅ الأيقونات (ستنشئها في الخطوة التالية)
+        // ✅ الأيقونات - مسارات مصححة
         icons: [
           {
-            src: '/icons/icon-192x192.png',
+            src: 'icon-192x192.png',        // 🔥 إزالة "/" من البداية
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/icons/icon-512x512.png',
+            src: 'icon-512x512.png',        // 🔥 إزالة "/" من البداية
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/icons/icon-maskable-192x192.png',
+            src: 'icon-maskable-192x192.png',  // 🔥 إزالة "/" من البداية
             sizes: '192x192',
             type: 'image/png',
             purpose: 'maskable'
           },
           {
-            src: '/icons/icon-maskable-512x512.png',
+            src: 'icon-maskable-512x512.png',  // 🔥 إزالة "/" من البداية
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
           }
         ],
         
-        screenshots: [
-          {
-            src: '/screenshots/home.png',
-            sizes: '1280x720',
-            type: 'image/png',
-            form_factor: 'wide',
-            label: 'الصفحة الرئيسية'
-          },
-          {
-            src: '/screenshots/search.png', 
-            sizes: '750x1334',
-            type: 'image/png',
-            form_factor: 'narrow',
-            label: 'بحث الآيات'
-          }
-        ],
-
-        // ✅ Shortcuts (من ملفك)
+        // ⚠️ إزالة screenshots مؤقتاً (لأنها تسبب أخطاء 404)
+        // screenshots: [],
+        
+        // ✅ Shortcuts - مسارات مصححة
         shortcuts: [
           {
             name: 'بحث نصي',
             short_name: 'بحث',
             description: 'البحث في القرآن الكريم',
             url: '/?action=search',
-            icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }]
+            icons: [{ src: 'icon-192x192.png', sizes: '192x192' }]  // 🔥 إزالة "/"
           },
           {
             name: 'المتشابهات',
             short_name: 'متشابهات',
             description: 'استكشاف الآيات المتشابهة',
             url: '/?action=similar',
-            icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }]
+            icons: [{ src: 'icon-192x192.png', sizes: '192x192' }]  // 🔥 إزالة "/"
           },
           {
             name: 'اختبار',
             short_name: 'اختبار',
             description: 'اختبر معرفتك بالقرآن',
             url: '/?action=quiz',
-            icons: [{ src: '/icons/icon-192x192.png', sizes: '192x192' }]
+            icons: [{ src: 'icon-192x192.png', sizes: '192x192' }]  // 🔥 إزالة "/"
           }
         ]
       },
@@ -232,7 +216,6 @@ export default defineConfig({
         
         globDirectory: 'dist',
         globIgnores: ['**/node_modules/**/*'],
-
 
         // ⚡ إضافة navigationPreload (جديد - تسريع التنقل)
         navigationPreload: true,
