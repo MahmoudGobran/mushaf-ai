@@ -38,6 +38,7 @@ from pathlib import Path as FilePath
 import sqlite3
 from functools import lru_cache
 import os
+from fastapi.responses import JSONResponse  # ✅ أضيف هذا الاستيراد
 
 # ============================================
 # ⚙️ Production Configuration
@@ -66,10 +67,10 @@ print(f"💾 Database: {DATABASE_URL}")
 # 5️⃣ CORS Origins (للأمان)
 ALLOWED_ORIGINS = [
     "http://localhost:5173",
-    "http://127.0.0.1:5173",
     "http://localhost:4173",
-    "http://192.168.178.140:4173",  # ← أضف عنوان IP الخاص بك
-    "https://mushaf-ai-frontend.onrender.com"
+    "https://mushaf-ai-frontend.onrender.com",
+    "https://mushaf-smart.pages.dev",  # ✅ أضف هذا السطر
+    "https://*.pages.dev",              # ✅ وهذا (أي subdomain)
 ]
 print(f"🔐 Allowed Origins: {ALLOWED_ORIGINS}")
 
@@ -77,6 +78,28 @@ print(f"🔐 Allowed Origins: {ALLOWED_ORIGINS}")
 WORKERS = int(os.environ.get("WORKERS", 1))
 print(f"⚡ Workers: {WORKERS}")
 
+# ============================================
+# 🆕 دالة مساعدة للـ Cache
+# ============================================
+
+def cached_response(data, max_age=3600):
+    """
+    دالة مساعدة لإنشاء response مع Cache headers
+    
+    Parameters:
+    - data: البيانات (dict أو list)
+    - max_age: مدة الحفظ بالثواني (افتراضي: ساعة)
+    
+    مثال:
+    return cached_response({"message": "Hello"}, max_age=1800)
+    """
+    return JSONResponse(
+        content=data,
+        headers={
+            "Cache-Control": f"public, max-age={max_age}",
+            "Vary": "Accept-Encoding"
+        }
+    )
 
 # استيراد دوال المعالجة
 from similarity import normalize_arabic_text as clean_text, highlight_differences, calculate_similarity, highlight_words_in_text
@@ -1832,7 +1855,12 @@ def get_verses(
 ):
     """جلب قائمة من الآيات"""
     verses = db.query(Verse).offset(skip).limit(limit).all()
-    return [v.to_dict() for v in verses]
+    
+    # ✅ استخدم cached_response بدلاً من JSONResponse
+    return cached_response(
+        [v.to_dict() for v in verses],
+        max_age=3600  # ساعة (البيانات ثابتة)
+    )
 
 @app.get("/compare/{id1}/{id2}")
 def compare_verses(
@@ -1862,18 +1890,21 @@ def get_statistics(db: Session = Depends(get_db)):
     total_verses = db.query(Verse).count()
     surahs = db.query(Verse.surah).distinct().count()
     
-    return {
-        "total_verses": total_verses,
-        "total_surahs": surahs,
-        "faiss_ready": FAISS_INDEX is not None,
-        "smart_hybrid_available": FAISS_INDEX is not None,
-        "fts_available": FTS_AVAILABLE,
-        "similarity_cache_size": len(SIMILARITY_CACHE) if SIMILARITY_CACHE else 0,
-        "word_stats_cache_size": len(WORD_STATS_CACHE) if WORD_STATS_CACHE else 0
-    }
+    return cached_response(
+        {
+            "total_verses": total_verses,
+            "total_surahs": surahs,
+            "faiss_ready": FAISS_INDEX is not None,
+            "smart_hybrid_available": FAISS_INDEX is not None,
+            "fts_available": FTS_AVAILABLE,
+            "similarity_cache_size": len(SIMILARITY_CACHE) if SIMILARITY_CACHE else 0,
+            "word_stats_cache_size": len(WORD_STATS_CACHE) if WORD_STATS_CACHE else 0
+        },
+        max_age=1800  # 30 دقيقة
+    )
 
 # ============================================
-# 🔥 الإصلاح 1: تسريع /all-similarities
+# 🔥 الإصلاح 1: تسريع /All-similarities
 # ============================================
 # استبدل الكود من السطور 1107-1230 في main.py بهذا:
 
